@@ -1,0 +1,6 @@
+{
+  "name": "Éditions Émile Mourey - Librairie Historique",
+  "description": "Boutique officielle des livres d'histoire de l'auteur Émile Mourey. Commandez en ligne des ouvrages historiques auto-édités avec paiement sécurisé par Carte Bancaire, PayPal ou Chèque postal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
