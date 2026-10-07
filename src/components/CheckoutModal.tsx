@@ -55,9 +55,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Calculations
   const isAllDigital = items.length > 0 && items.every((i) => i.format === 'numerique_pdf');
-  const subtotal = items.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0);
+  const subtotal = items.reduce((acc, i) => acc + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 1), 0);
   const totalWeightGrams = items.reduce(
-    (acc, i) => acc + (i.format === 'numerique_pdf' ? 0 : i.book.weightGrams) * i.quantity,
+    (acc, i) => acc + (i.format === 'numerique_pdf' ? 0 : (Number(i.book?.weightGrams) || 0)) * (Number(i.quantity) || 1),
     0
   );
 
@@ -91,7 +91,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const shippingCost = calculateShippingCost();
-  const grandTotal = subtotal + shippingCost;
+  const grandTotal = Number((subtotal || 0) + (shippingCost || 0));
 
   // Finalize order
   const handleCompleteOrder = (method: PaymentMethodType) => {
@@ -674,7 +674,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-bold rounded shadow transition-colors"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Payer {grandTotal.toFixed(2)} € par Carte Bancaire</span>
+                        <span>Payer {Number(grandTotal || 0).toFixed(2)} € par Carte Bancaire</span>
                       </button>
                     </div>
                   )}
@@ -700,7 +700,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span>Montant débité :</span>
-                          <span className="font-bold text-[#0079C1] tabular-nums">{grandTotal.toFixed(2)} €</span>
+                          <span className="font-bold text-[#0079C1] tabular-nums">{Number(grandTotal || 0).toFixed(2)} €</span>
                         </div>
                       </div>
 
@@ -712,7 +712,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       >
                         <span className="font-black text-[#003087]">Pay</span>
                         <span className="font-black text-[#0079C1] -ml-1">Pal</span>
-                        <span>· Régler {grandTotal.toFixed(2)} €</span>
+                        <span>· Régler {Number(grandTotal || 0).toFixed(2)} €</span>
                       </button>
                     </div>
                   )}
@@ -861,7 +861,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 Authentification 3D Secure (Stripe)
               </h4>
               <p className="text-xs text-stone-500 mt-1">
-                Validation bancaire pour le paiement de <strong>{grandTotal.toFixed(2)} €</strong> auprès des Éditions Émile Mourey.
+                Validation bancaire pour le paiement de <strong>{Number(grandTotal || 0).toFixed(2)} €</strong> auprès des Éditions Émile Mourey.
               </p>
             </div>
             <div className="p-3 bg-stone-50 rounded border border-stone-200 text-xs text-stone-600 text-left space-y-1">

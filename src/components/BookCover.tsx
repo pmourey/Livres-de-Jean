@@ -48,6 +48,21 @@ export const BookCover: React.FC<BookCoverProps> = ({
             <circle cx="32" cy="30" r="3" fill="currentColor" />
           </svg>
         );
+      case 'moon':
+        return (
+          <svg className="w-12 h-12 opacity-85" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M40 14C34 16 30 22 30 29C30 36 34 42 40 44C28 44 20 36 20 29C20 22 28 14 40 14Z" fill="currentColor" fillOpacity="0.12" />
+            <polygon points="44,22 46,26 50,26 47,29 48,33 44,30 40,33 41,29 38,26 42,26" fill="currentColor" />
+          </svg>
+        );
+      case 'map':
+        return (
+          <svg className="w-12 h-12 opacity-85" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <polygon points="12,18 24,14 40,18 52,14 52,46 40,50 24,46 12,50" fill="currentColor" fillOpacity="0.08" />
+            <line x1="24" y1="14" x2="24" y2="46" strokeDasharray="2 2" />
+            <line x1="40" y1="18" x2="40" y2="50" strokeDasharray="2 2" />
+          </svg>
+        );
       case 'cross':
         return (
           <svg className="w-12 h-12 opacity-85" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -135,8 +150,13 @@ export const BookCover: React.FC<BookCoverProps> = ({
         </div>
       </div>
 
-      {/* Featured / Pack Badge */}
-      {showBadge && book.originalPrice && (
+      {/* Featured / Pack / Inédit Badge */}
+      {showBadge && book.isUnpublished && (
+        <div className="absolute top-2 right-2 bg-stone-900/90 text-amber-300 border border-amber-400/40 font-cinzel font-bold text-[8px] px-1.5 py-0.5 shadow-sm">
+          Manuscrit Inédit
+        </div>
+      )}
+      {showBadge && book.originalPrice && !book.isUnpublished && (
         <div className="absolute top-2 right-2 bg-amber-500 text-stone-950 font-cinzel font-bold text-[9px] px-1.5 py-0.5 shadow-sm rounded-none">
           Pack Coffret
         </div>

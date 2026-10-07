@@ -22,15 +22,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const subtotal = items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1), 0);
   const totalWeight = items.reduce(
-    (acc, item) => acc + (item.format === 'numerique_pdf' ? 0 : item.book.weightGrams) * item.quantity,
+    (acc, item) => acc + (item.format === 'numerique_pdf' ? 0 : (Number(item.book?.weightGrams) || 0)) * (Number(item.quantity) || 1),
     0
   );
   const isAllDigital = items.length > 0 && items.every((i) => i.format === 'numerique_pdf');
   const freeShippingThreshold = 55.0;
-  const missingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
-  const freeShippingPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const missingForFreeShipping = Math.max(0, freeShippingThreshold - (subtotal || 0));
+  const freeShippingPercent = Math.min(100, ((subtotal || 0) / freeShippingThreshold) * 100);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
@@ -74,7 +74,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <p className="text-stone-700 flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5 text-[#8B1E2D]" />
                     <span>
-                      Plus que <strong className="text-[#8B1E2D] font-semibold">{missingForFreeShipping.toFixed(2)} €</strong> pour la livraison Colissimo offerte !
+                      Plus que <strong className="text-[#8B1E2D] font-semibold">{Number(missingForFreeShipping || 0).toFixed(2)} €</strong> pour la livraison Colissimo offerte !
                     </span>
                   </p>
                   <div className="w-full bg-stone-300 h-1.5 rounded-full mt-2 overflow-hidden">
@@ -148,7 +148,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </div>
 
                       <p className="text-xs text-[#8B1E2D] font-bold font-serif-display tabular-nums mt-1">
-                        {(item.unitPrice ?? 22.0).toFixed(2)} € <span className="text-[10px] text-stone-400 font-sans">/ unité</span>
+                        {Number(item.unitPrice || 22.0).toFixed(2)} € <span className="text-[10px] text-stone-400 font-sans">/ unité</span>
                       </p>
 
                       {/* Dedication indicator */}

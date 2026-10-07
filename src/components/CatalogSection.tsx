@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Book, BookFormat } from '../types';
 import { BookCover } from './BookCover';
 import { 
-  Search, ShoppingBag, Eye, Feather, Sparkles, BookOpen, 
-  Truck, ExternalLink, FileText, Package 
+  Search, SlidersHorizontal, Eye, ShoppingBag, Feather, 
+  ExternalLink, Sparkles, BookOpen, Clock, AlertCircle, FileText 
 } from 'lucide-react';
 
 interface CatalogSectionProps {
@@ -28,27 +28,34 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
     { id: 'Histoire de Bibracte', label: 'Histoire de Bibracte (Tomes 2 à 5)' },
     { id: 'Gergovie & Gaule', label: 'Gergovie (Tome 1)' },
     { id: 'Histoire du Christ', label: 'Histoire du Christ (Tomes 1 & 2)' },
+    { id: 'Histoire de Mahomet', label: 'Histoire de Mahomet (Tomes 1 & 2 · Inédits)' },
+    { id: 'Manuscrits Inédits', label: 'Manuscrits Inédits (La Gaule en héritage)' },
     { id: 'Coffrets & Intégrales', label: 'Coffrets & Intégrales' }
   ];
 
   // Filtering
   const filteredBooks = books.filter((book) => {
     const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return matchesCategory;
+
     const matchesSearch =
-      book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.subtitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (book.tome && book.tome.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      book.isbn.includes(searchQuery) ||
-      (book.isbn10 && book.isbn10.includes(searchQuery));
+      (book.title && book.title.toLowerCase().includes(q)) ||
+      (book.subtitle && book.subtitle.toLowerCase().includes(q)) ||
+      (book.shortDescription && book.shortDescription.toLowerCase().includes(q)) ||
+      (book.tome && book.tome.toLowerCase().includes(q)) ||
+      (book.isbn && book.isbn.toLowerCase().includes(q)) ||
+      (book.isbn10 && book.isbn10.toLowerCase().includes(q)) ||
+      (book.keyQuotes && book.keyQuotes.some((k) => k.toLowerCase().includes(q)));
+
     return matchesCategory && matchesSearch;
   });
 
   // Sorting
   const sortedBooks = [...filteredBooks].sort((a, b) => {
-    if (sortBy === 'price-asc') return a.price - b.price;
-    if (sortBy === 'price-desc') return b.price - a.price;
-    if (sortBy === 'year') return b.publicationYear - a.publicationYear;
+    if (sortBy === 'price-asc') return (a.price || 0) - (b.price || 0);
+    if (sortBy === 'price-desc') return (b.price || 0) - (a.price || 0);
+    if (sortBy === 'year') return (b.publicationYear || 0) - (a.publicationYear || 0);
     return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
   });
 
@@ -71,9 +78,9 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
 
         <div className="relative max-w-5xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 text-[#D4AF37] text-xs font-cinzel tracking-[0.25em] uppercase font-bold">
-            <span>Catalogue Officiel Émile Mourey</span>
+            <span>Catalogue & Archives Officielles Émile Mourey</span>
             <span>·</span>
-            <span>Vente Directe en Auto-Édition</span>
+            <span>Vente Directe & Diffusion Historique</span>
           </div>
 
           <h1 className="font-serif-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-4xl mx-auto leading-tight">
@@ -91,142 +98,158 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                 <FileText className="w-5 h-5 text-[#D4AF37] shrink-0" />
                 <div>
                   <span className="font-bold text-white block">
-                    Deux formats disponibles à la commande :
+                    Modalités d'accès et de commande des ouvrages :
                   </span>
-                  <p className="text-stone-300 text-[11px]">
-                    • <strong>Livre papier broché :</strong> Expédié par Colissimo avec dédicace personnalisée de l'auteur offerte.<br />
-                    • <strong>eBook numérique (PDF) :</strong> Téléchargement sécurisé débloqué dans votre Espace Client dès paiement.
+                  <p className="text-stone-300 text-[11px] mt-0.5">
+                    • <strong>Livres publiés (avec ISBN) :</strong> Versions papier brochées expédiées avec dédicace offerte, et versions numériques officielles (eBook PDF payant via le panier).<br />
+                    • <strong>Manuscrits inédits (Histoire de Mahomet, La Gaule en héritage) :</strong> Hors commerce (sans ISBN), bientôt consultables en PDF patrimonial.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Key Advantages */}
-          <div className="pt-3 flex flex-wrap justify-center items-center gap-6 text-xs text-stone-300 font-sans">
-            <span className="flex items-center gap-1.5">
-              <Feather className="w-4 h-4 text-[#D4AF37]" /> Dédicace manuscrite offerte
-            </span>
-            <span aria-hidden="true" className="text-stone-600">·</span>
-            <span className="flex items-center gap-1.5">
-              <Truck className="w-4 h-4 text-[#D4AF37]" /> Colissimo La Poste & Points Relais (Franco dès 55 €)
-            </span>
-            <span aria-hidden="true" className="text-stone-600">·</span>
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#D4AF37]" /> CB Stripe, PayPal & Chèque postal
-            </span>
-          </div>
         </div>
       </section>
 
-      {/* Main Catalog Container */}
+      {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Search & Filter Toolbar */}
-        <div className="space-y-4">
-          {/* Top row: search + sort */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher : Bibracte, Gergovie, Christ, Tome, ISBN..."
-                className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-stone-300 rounded-md shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#8B1E2D]"
-              />
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
-            </div>
-
-            {/* Sort selector */}
-            <div className="flex items-center gap-2 text-xs text-stone-600">
-              <span className="whitespace-nowrap">Trier par :</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-white border border-stone-300 rounded-md px-3 py-1.5 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#8B1E2D]"
-              >
-                <option value="featured">Sélection de l'auteur</option>
-                <option value="year">Année de parution</option>
-                <option value="price-asc">Prix croissant</option>
-                <option value="price-desc">Prix décroissant</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Category Tabs (Segmented controls, zero-pill discipline) */}
-          <div className="flex items-center gap-1.5 p-1 bg-stone-200/70 rounded-lg overflow-x-auto">
+        {/* Controls Bar: Categories, Search & Sort */}
+        <div className="bg-[#F5F1E9] p-4 sm:p-6 rounded-lg border border-stone-200 space-y-4">
+          {/* Top row: Categories pills */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-cinzel text-stone-700 font-bold tracking-wider mr-2 uppercase">
+              Catégories :
+            </span>
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                   selectedCategory === cat.id
-                    ? 'bg-white text-[#2B1810] shadow-2xs font-semibold'
-                    : 'text-stone-600 hover:text-stone-900'
+                    ? 'bg-[#8B1E2D] text-white shadow-2xs font-semibold'
+                    : 'bg-white text-stone-700 border border-stone-300 hover:border-stone-400'
                 }`}
               >
                 {cat.label}
               </button>
             ))}
           </div>
+
+          {/* Bottom row: Search & Sort controls */}
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between pt-2 border-t border-stone-200">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Rechercher par titre, tome, source antique, extrait..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-stone-300 rounded text-xs placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#8B1E2D] focus:border-[#8B1E2D]"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-stone-600"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {/* Sort Options */}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
+              <span className="text-xs text-stone-600">Trier par :</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-white border border-stone-300 rounded px-2.5 py-1.5 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#8B1E2D]"
+              >
+                <option value="featured">Recommandations de l'auteur</option>
+                <option value="year">Date de parution / rédaction</option>
+                <option value="price-asc">Prix croissant</option>
+                <option value="price-desc">Prix décroissant</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Books Grid */}
+        {/* Results Counter */}
+        <div className="flex items-center justify-between text-xs text-stone-500 px-1">
+          <span>
+            {sortedBooks.length} ouvrage{sortedBooks.length > 1 ? 's' : ''} répertorié{sortedBooks.length > 1 ? 's' : ''}
+            {selectedCategory !== 'all' ? ` dans cette catégorie` : ''}
+          </span>
+          <span className="italic">Vente directe par l'auteur · Frais de port offerts dès 55 € d'achat</span>
+        </div>
+
+        {/* Book Grid */}
         {sortedBooks.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-lg border border-stone-200 text-stone-500 space-y-2">
+          <div className="bg-white border border-stone-200 rounded-lg p-12 text-center space-y-3">
             <BookOpen className="w-10 h-10 mx-auto text-stone-300" />
-            <p className="font-serif-display text-base font-bold text-stone-800">
+            <h3 className="font-serif-display font-bold text-lg text-stone-800">
               Aucun ouvrage ne correspond à votre recherche
-            </p>
+            </h3>
             <p className="text-xs text-stone-500">
-              Essayez de modifier vos mots-clés ou réinitialisez le filtre thématique.
+              Essayez de modifier votre mot-clé ou sélectionnez "Tous les ouvrages" pour réinitialiser les filtres.
             </p>
             <button
               onClick={() => {
-                setSearchQuery('');
                 setSelectedCategory('all');
+                setSearchQuery('');
               }}
-              className="mt-3 px-4 py-1.5 text-xs font-semibold text-[#8B1E2D] hover:underline"
+              className="mt-2 px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded text-xs font-semibold"
             >
-              Afficher tous les livres
+              Réinitialiser le catalogue
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {sortedBooks.map((book) => (
               <div
                 key={book.id}
-                className="group bg-white rounded-lg border border-stone-200/90 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden"
+                className="group bg-white rounded-lg border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
               >
-                {/* Book Card Top: Visual & Badges */}
-                <div className="p-5 pb-3 flex flex-col items-center">
-                  <div
-                    onClick={() => onSelectBook(book)}
-                    className="cursor-pointer transition-transform duration-300 group-hover:-translate-y-1"
-                  >
-                    <BookCover book={book} size="md" />
-                  </div>
-
-                  {/* Clean unboxed metadata (anti-slop rule) */}
-                  <div className="w-full flex items-center justify-center gap-1.5 text-[11px] text-stone-500 mt-4">
-                    <span>{book.author}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{book.tome ? book.tome : `${book.pages} p.`}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{book.weightGrams} g</span>
-                  </div>
-
-                  {/* Title & Subtitle */}
-                  <div className="mt-2 text-center space-y-1 w-full">
-                    <h3
+                {/* Book Card Top: Visual & Description */}
+                <div className="p-5 space-y-4">
+                  {/* Visual Cover + Meta header */}
+                  <div className="flex gap-4 items-start">
+                    <div
                       onClick={() => onSelectBook(book)}
-                      className="font-serif-display font-bold text-lg text-[#2B1810] group-hover:text-[#8B1E2D] transition-colors leading-snug cursor-pointer line-clamp-2"
+                      className="cursor-pointer shrink-0 transition-transform group-hover:scale-102"
+                      title="Cliquer pour voir la fiche détaillée"
                     >
-                      {book.title}
-                    </h3>
-                    <p className="font-serif-display italic text-xs text-stone-600 line-clamp-2">
-                      {book.subtitle}
-                    </p>
+                      <BookCover book={book} size="md" />
+                    </div>
+
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      {book.isUnpublished ? (
+                        <span className="inline-block text-[9px] font-cinzel font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded uppercase tracking-wider">
+                          Manuscrit Inédit · Hors Vente
+                        </span>
+                      ) : (
+                        <span className="inline-block text-[9px] font-cinzel font-bold text-[#8B1E2D] bg-[#8B1E2D]/10 px-2 py-0.5 rounded uppercase tracking-wider">
+                          {book.category}
+                        </span>
+                      )}
+
+                      <h3
+                        onClick={() => onSelectBook(book)}
+                        className="font-serif-display font-bold text-base sm:text-lg text-[#2B1810] leading-snug cursor-pointer hover:text-[#8B1E2D] transition-colors"
+                      >
+                        {book.title}
+                      </h3>
+
+                      <p className="font-serif-display italic text-xs text-stone-600 line-clamp-2">
+                        {book.subtitle}
+                      </p>
+
+                      <div className="text-[11px] text-stone-500 pt-1 space-y-0.5">
+                        <p>Auteur : <strong className="text-stone-700">{book.author}</strong></p>
+                        <p>{book.publicationYear} · {book.pages} pages</p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Short excerpt / description */}
@@ -234,9 +257,18 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                     {book.shortDescription}
                   </p>
 
+                  {/* Significant quote if available */}
+                  {book.keyQuotes && book.keyQuotes.length > 0 && (
+                    <div className="mt-2 text-[11px] italic text-stone-700 bg-stone-50/90 p-2.5 rounded border-l-2 border-[#8B1E2D] line-clamp-2 leading-snug">
+                      « {book.keyQuotes[0]} »
+                    </div>
+                  )}
+
                   {/* ISBN and External Reference links */}
                   <div className="w-full mt-3 pt-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-400">
-                    <span className="font-mono">ISBN : {book.isbn10 || book.isbn}</span>
+                    <span className="font-mono">
+                      {book.isUnpublished ? 'Sans ISBN (Pas de dépôt légal)' : `ISBN : ${book.isbn10 || book.isbn}`}
+                    </span>
                     {book.amazonUrl && (
                       <a
                         href={book.amazonUrl}
@@ -254,46 +286,81 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
 
                 {/* Book Card Bottom: Price, Formats & Actions */}
                 <div className="p-5 pt-3 border-t border-stone-100 bg-[#FAF8F5]/60 space-y-3">
-                  {/* Pricing per format */}
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[11px] text-stone-500 block">Dès</span>
-                      <span className="font-serif-display font-bold text-xl text-[#8B1E2D] tabular-nums">
-                        {(book.priceEbook ?? 9.9).toFixed(2)} €
-                      </span>
-                      <span className="text-xs text-stone-500 ml-1.5">
-                        (PDF) · <strong className="text-stone-800">{(book.price ?? 22.0).toFixed(2)} €</strong> (Papier)
-                      </span>
+                  {book.isUnpublished ? (
+                    /* Unpublished / Manuscript Notice */
+                    <div className="bg-amber-50/90 border border-amber-300/80 rounded p-2.5 space-y-1">
+                      <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                        <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>Disponible prochainement en PDF</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 leading-snug">
+                        Sans dépôt légal (pas d'ISBN) · Non destiné à la vente.
+                      </p>
                     </div>
-                    <span className="text-[10px] text-emerald-800 font-medium">
-                      {book.inStock > 0 ? `En stock` : 'Sur commande'}
-                    </span>
-                  </div>
+                  ) : (
+                    /* Published Books Pricing */
+                    <>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <span className="text-[11px] text-stone-500 block">Dès</span>
+                          <span className="font-serif-display font-bold text-xl text-[#8B1E2D] tabular-nums">
+                            {Number(book.priceEbook || 9.9).toFixed(2)} €
+                          </span>
+                          <span className="text-xs text-stone-500 ml-1.5">
+                            (PDF) · <strong className="text-stone-800">{Number(book.price || 22.0).toFixed(2)} €</strong> (Papier)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-800 font-medium">
+                          {book.inStock > 0 ? `En stock` : 'Sur commande'}
+                        </span>
+                      </div>
 
-                  {/* Free dedication hint for paper */}
-                  <p className="text-[10px] text-amber-900 flex items-center gap-1 bg-amber-50/80 px-2 py-0.5 rounded border border-amber-200/50">
-                    <Feather className="w-3 h-3 text-[#8B1E2D] shrink-0" />
-                    <span>Dédicace de l'auteur offerte sur la version papier</span>
-                  </p>
+                      {/* Free dedication hint for paper */}
+                      <p className="text-[10px] text-amber-900 flex items-center gap-1 bg-amber-50/80 px-2 py-0.5 rounded border border-amber-200/50">
+                        <Feather className="w-3 h-3 text-[#8B1E2D] shrink-0" />
+                        <span>Dédicace de l'auteur offerte sur la version papier</span>
+                      </p>
+                    </>
+                  )}
 
                   {/* Actions buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      onClick={() => onSelectBook(book)}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 rounded border border-stone-300 transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Choisir format</span>
-                    </button>
+                  {book.isUnpublished ? (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => onSelectBook(book)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition-colors shadow-2xs"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Consulter la fiche</span>
+                      </button>
 
-                    <button
-                      onClick={() => onSelectBook(book)}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#8B1E2D] hover:bg-[#721824] rounded shadow-2xs transition-colors"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Commander</span>
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => onOpenExcerpt(book)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 rounded border border-stone-300 transition-colors"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-[#8B1E2D]" />
+                        <span>Feuilleter l'extrait</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => onSelectBook(book)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 rounded border border-stone-300 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Choisir format</span>
+                      </button>
+
+                      <button
+                        onClick={() => onSelectBook(book)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#8B1E2D] hover:bg-[#721824] rounded shadow-2xs transition-colors"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>Commander</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -320,9 +387,11 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
 
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <div>
-                  <span className="text-xs text-stone-300 block">Version PDF : <strong>{(featuredBook?.priceEbook ?? 9.9).toFixed(2)} €</strong></span>
+                  <span className="text-xs text-stone-300 block">
+                    Version PDF : <strong>{Number(featuredBook?.priceEbook || 9.9).toFixed(2)} €</strong>
+                  </span>
                   <span className="text-2xl font-serif-display font-bold text-[#D4AF37] tabular-nums">
-                    Papier relié : {(featuredBook?.price ?? 22.0).toFixed(2)} €
+                    Papier relié : {Number(featuredBook?.price || 22.0).toFixed(2)} €
                   </span>
                 </div>
                 <button

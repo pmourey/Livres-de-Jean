@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Book } from '../types';
-import { X, BookOpen, ChevronLeft, ChevronRight, Lock, ShoppingBag, Sparkles } from 'lucide-react';
+import { X, BookOpen, ChevronLeft, ChevronRight, Lock, ShoppingBag, Sparkles, Scroll } from 'lucide-react';
 
 interface ExcerptReaderModalProps {
   book: Book;
@@ -27,7 +27,7 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
                 Feuilleter l'ouvrage : {book.title}
               </p>
               <p className="text-[11px] text-stone-500">
-                Spécimen découverte gratuit · {book.excerptTitle}
+                {book.isUnpublished ? 'Manuscrit Inédit' : 'Spécimen découverte officiel'} · {book.excerptTitle}
               </p>
             </div>
           </div>
@@ -39,15 +39,26 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
           </button>
         </div>
 
-        {/* Security & Intellectual Property Notice (CRITICAL: Full version requires payment via cart) */}
-        <div className="bg-amber-50/90 border-b border-amber-200/70 px-5 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900">
-          <div className="flex items-center gap-2">
-            <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-            <span className="text-[11px] leading-snug">
-              <strong>Extrait de lecture limité (3 pages).</strong> L'ouvrage intégral n'est pas en libre accès : la version complète (PDF ou papier broché) s'acquiert via le panier de commande.
-            </span>
+        {/* Security & Access Notice */}
+        {book.isUnpublished ? (
+          <div className="bg-amber-50/90 border-b border-amber-200/70 px-5 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <Scroll className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+              <span className="text-[11px] leading-snug">
+                <strong>Extrait du manuscrit inédit d'Émile Mourey.</strong> Document de recherche hors commerce (sans ISBN) — Diffusion PDF intégrale prévue prochainement.
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-amber-50/90 border-b border-amber-200/70 px-5 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+              <span className="text-[11px] leading-snug">
+                <strong>Extrait de lecture limité (spécimen de 3 pages).</strong> L'ouvrage intégral n'est pas en libre accès : la version complète (PDF ou papier broché) nécessite une commande via le panier.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Reader Parchment Page */}
         <div className="p-6 sm:p-8 overflow-y-auto flex-1 font-serif-display text-[#2B231D] leading-relaxed text-base sm:text-lg bg-[#FCFBF7]">
@@ -66,28 +77,40 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
             </div>
 
             <div className="pt-6 text-center text-xs font-sans text-stone-400">
-              Page {currentPage + 1} sur {book.excerptPages.length} de l'extrait · {book.pages} pages dans l'édition intégrale
+              Page {currentPage + 1} sur {book.excerptPages.length} de l'extrait · {book.pages} pages dans l'ouvrage complet
             </div>
 
-            {/* In-page callout to purchase */}
-            <div className="mt-6 p-4 rounded-lg bg-[#F5F1E9] border border-stone-200 text-xs text-stone-700 space-y-2 font-sans">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-stone-900 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
-                  Envie de lire la suite ?
-                </span>
-                <span className="font-bold text-[#8B1E2D] font-serif-display text-sm">
-                  Dès {(book.priceEbook ?? 9.9).toFixed(2)} €
-                </span>
+            {/* In-page callout */}
+            {book.isUnpublished ? (
+              <div className="mt-6 p-4 rounded-lg bg-amber-50/90 border border-amber-200 text-xs text-stone-700 space-y-1.5 font-sans">
+                <div className="flex items-center gap-1.5 text-amber-950 font-bold">
+                  <Scroll className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Manuscrit Inédit hors commerce</span>
+                </div>
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  {book.availabilityNotice || "Cet ouvrage sans dépôt légal (pas d'ISBN) sera consultable prochainement en version numérique PDF intégrale (ou impression à la demande). Non disponible à la vente directe."}
+                </p>
               </div>
-              <p className="text-[11px] text-stone-600 leading-relaxed">
-                Retrouvez l'intégralité des chapitres, plans topographiques et relevés d'Émile Mourey en commandant l'ouvrage complet au format PDF téléchargeable ou en livre relié avec dédicace manuscrite offerte.
-              </p>
-            </div>
+            ) : (
+              <div className="mt-6 p-4 rounded-lg bg-[#F5F1E9] border border-stone-200 text-xs text-stone-700 space-y-2 font-sans">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-900 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
+                    Envie de lire la suite ?
+                  </span>
+                  <span className="font-bold text-[#8B1E2D] font-serif-display text-sm">
+                    Dès {Number(book.priceEbook || 9.9).toFixed(2)} €
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-600 leading-relaxed">
+                  Retrouvez l'intégralité des chapitres, plans topographiques et relevés d'Émile Mourey en commandant l'ouvrage complet au format PDF téléchargeable ou en livre relié avec dédicace manuscrite offerte.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Footer Navigation & Purchase CTA */}
+        {/* Footer Navigation & CTA */}
         <div className="px-5 sm:px-6 py-3.5 border-t border-[#E8E2D5] bg-[#F4EFE6] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -113,7 +136,7 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
             </button>
           </div>
 
-          {onSelectForPurchase && (
+          {!book.isUnpublished && onSelectForPurchase ? (
             <button
               onClick={() => {
                 onClose();
@@ -123,6 +146,13 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Commander l'ouvrage complet</span>
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold rounded transition-colors"
+            >
+              Fermer
             </button>
           )}
         </div>

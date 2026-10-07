@@ -2,6 +2,8 @@ export type BookCategory =
   | 'Histoire de Bibracte'
   | 'Gergovie & Gaule'
   | 'Histoire du Christ'
+  | 'Histoire de Mahomet'
+  | 'Manuscrits Inédits'
   | 'Coffrets & Intégrales';
 
 export type BookFormat = 'papier' | 'numerique_pdf' | 'pack_duo';
@@ -29,13 +31,16 @@ export interface Book {
   tableOfContents: string[];
   excerptTitle: string;
   excerptPages: string[];
+  keyQuotes?: string[]; // Extraits significatifs et authentiques du livre
   inStock: number;
   featured?: boolean;
   coverBgColor: string;
   coverAccentColor: string;
-  motif: 'shield' | 'fortress' | 'laurel' | 'map' | 'scroll' | 'cross';
+  motif: 'shield' | 'fortress' | 'laurel' | 'map' | 'scroll' | 'cross' | 'moon';
   amazonUrl?: string;
   digitalPdfUrl: string; // Accessible uniquement après commande payée
+  isUnpublished?: boolean; // Manuscrit inédit, hors commerce (sans ISBN / pas de dépôt légal)
+  availabilityNotice?: string; // Information sur la diffusion future (PDF / impression à la demande)
 }
 
 export interface CartItem {

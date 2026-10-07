@@ -34,18 +34,35 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((pb: any) => {
-            const initial = INITIAL_BOOKS.find((ib) => ib.id === pb.id);
+          // Merge INITIAL_BOOKS with saved so that ALL initial books (including newly added Mahomet & Gaule) exist and have updated descriptions/quotes!
+          const merged = INITIAL_BOOKS.map((ib) => {
+            const pb = parsed.find((p: any) => p.id === ib.id);
+            if (!pb) return ib;
             return {
-              ...(initial || {}),
+              ...ib,
               ...pb,
-              price: typeof pb.price === 'number' ? pb.price : (initial?.price ?? 22.0),
-              priceEbook: typeof pb.priceEbook === 'number' ? pb.priceEbook : (initial?.priceEbook ?? 9.9),
-              priceCombo: typeof pb.priceCombo === 'number' ? pb.priceCombo : (initial?.priceCombo ?? 26.0),
-              weightGrams: typeof pb.weightGrams === 'number' ? pb.weightGrams : (initial?.weightGrams ?? 420),
-              inStock: typeof pb.inStock === 'number' ? pb.inStock : (initial?.inStock ?? 10)
+              // Keep canonical enriched text, quotes, and unpublished flags from INITIAL_BOOKS
+              shortDescription: ib.shortDescription,
+              fullSynopsis: ib.fullSynopsis,
+              tableOfContents: ib.tableOfContents,
+              excerptTitle: ib.excerptTitle,
+              excerptPages: ib.excerptPages,
+              keyQuotes: ib.keyQuotes,
+              availabilityNotice: ib.availabilityNotice,
+              isUnpublished: ib.isUnpublished,
+              category: ib.category,
+              isbn: ib.isbn,
+              isbn10: ib.isbn10,
+              inStock: typeof pb.inStock === 'number' ? pb.inStock : ib.inStock
             };
           });
+
+          // Also keep any user-created custom books from admin
+          const customBooks = parsed.filter(
+            (pb: any) => !INITIAL_BOOKS.some((ib) => ib.id === pb.id)
+          );
+
+          return [...merged, ...customBooks];
         }
       } catch (e) {
         // fallback
@@ -161,14 +178,19 @@ export default function App() {
     recipient?: string,
     message?: string
   ) => {
+    // Unpublished manuscripts without legal deposit are not for sale
+    if (book.isUnpublished) {
+      return;
+    }
+
     const finalUnitPrice =
       unitPrice !== undefined
-        ? unitPrice
+        ? Number(unitPrice)
         : format === 'numerique_pdf'
-        ? book.priceEbook
+        ? Number(book.priceEbook || 9.9)
         : format === 'pack_duo'
-        ? (book.priceCombo || book.price + 4.0)
-        : book.price;
+        ? Number(book.priceCombo || ((book.price || 22.0) + 4.0))
+        : Number(book.price || 22.0);
 
     setCart((prev) => {
       const existingIdx = prev.findIndex(

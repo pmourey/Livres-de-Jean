@@ -463,17 +463,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <h4 className="font-serif-display font-bold text-sm text-[#2B1810] line-clamp-1">
                       {b.title}
                     </h4>
-                    <p className="text-[11px] text-stone-500 font-mono">ISBN : {b.isbn}</p>
+                    <p className="text-[11px] text-stone-500 font-mono">
+                      {b.isUnpublished ? 'Sans ISBN (Pas de dépôt légal)' : `ISBN : ${b.isbn}`}
+                    </p>
                   </div>
-                  <span className="font-serif-display font-bold text-base text-[#8B1E2D] tabular-nums">
-                    {(b.price ?? 22.0).toFixed(2)} €
+                  <span className={`font-serif-display font-bold text-sm tabular-nums ${b.isUnpublished ? 'text-amber-800' : 'text-[#8B1E2D]'}`}>
+                    {b.isUnpublished ? 'Inédit' : `${Number(b.price || 22.0).toFixed(2)} €`}
                   </span>
                 </div>
 
                 <div className="text-xs space-y-1 text-stone-600">
                   <div className="flex justify-between">
-                    <span>Poids :</span>
-                    <span className="font-mono">{b.weightGrams} g</span>
+                    <span>Statut :</span>
+                    <span className="font-medium text-stone-800">{b.isUnpublished ? 'Manuscrit d\'auteur' : 'Ouvrage publié'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Pages :</span>
@@ -487,24 +489,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* Stock editor */}
                 <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-                  <span className="text-xs text-stone-700 font-medium">Exemplaires en stock :</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onUpdateBookStock(b.id, Math.max(0, b.inStock - 1))}
-                      className="w-6 h-6 border rounded bg-white text-stone-700 flex items-center justify-center font-bold text-xs hover:bg-stone-100"
-                    >
-                      -
-                    </button>
-                    <span className="w-8 text-center font-mono font-bold text-xs text-stone-900">
-                      {b.inStock}
+                  <span className="text-xs text-stone-700 font-medium">
+                    {b.isUnpublished ? 'Diffusion :' : 'Exemplaires en stock :'}
+                  </span>
+                  {b.isUnpublished ? (
+                    <span className="text-[11px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      PDF prochainement
                     </span>
-                    <button
-                      onClick={() => onUpdateBookStock(b.id, b.inStock + 1)}
-                      className="w-6 h-6 border rounded bg-white text-stone-700 flex items-center justify-center font-bold text-xs hover:bg-stone-100"
-                    >
-                      +
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onUpdateBookStock(b.id, Math.max(0, b.inStock - 1))}
+                        className="w-6 h-6 border rounded bg-white text-stone-700 flex items-center justify-center font-bold text-xs hover:bg-stone-100"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center font-mono font-bold text-xs text-stone-900">
+                        {b.inStock}
+                      </span>
+                      <button
+                        onClick={() => onUpdateBookStock(b.id, b.inStock + 1)}
+                        className="w-6 h-6 border rounded bg-white text-stone-700 flex items-center justify-center font-bold text-xs hover:bg-stone-100"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
