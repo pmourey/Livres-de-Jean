@@ -27,9 +27,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # cache: 'npm' # J'ai supprimé la ligne "cache: 'npm'" ici
       - name: Install dependencies
-        run: npm ci
+        run: npm install # Au lieu de "npm ci"
       - name: Build
         run: npm run build
       - name: Setup Pages
