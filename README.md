@@ -36,7 +36,7 @@ Le dépôt est configuré pour publier le site sur GitHub Pages avec GitHub Acti
 2. Envoyer les changements sur la branche `main`.
 3. Suivre l’exécution du workflow **Deploy to GitHub Pages** dans l’onglet **Actions**. Une fois terminé, le site sera publié sur `https://pmourey.github.io/Livres-de-Jean/`.
 
-Le workflow `.github/workflows/deploy.yaml` installe les dépendances avec `npm ci`, lance `npm run build`, puis publie `dist/`. Le fichier `package-lock.json` doit être conservé et mis à jour avec `npm install` lors de toute modification des dépendances.
+Le workflow `deploy.yaml` installe les dépendances avec `npm ci`, lance `npm run build`, puis publie `dist/`. Le fichier `package-lock.json` doit être conservé et mis à jour avec `npm install` lors de toute modification des dépendances.
 
 L’application utilise le chemin de base `/Livres-de-Jean/` configuré dans `vite.config.ts`. Si le dépôt ou son URL de publication change, adapter cette valeur avant de déployer.
 
