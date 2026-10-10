@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Book, BookFormat } from '../types';
 import { BookCover } from './BookCover';
+import { amazonKindleSearchUrl } from '../config/commerce';
 import { 
   X, BookOpen, ShoppingBag, Feather, Check, Sparkles, Scale, 
   Layers, FileText, Package, ExternalLink, Clock, AlertTriangle, Scroll 
@@ -47,6 +48,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   };
 
   const currentUnitPrice = getUnitPrice(selectedFormat);
+  const kindleUrl = book.amazonKindleUrl || amazonKindleSearchUrl(book.title, book.author);
 
   const handleAdd = () => {
     if (book.isUnpublished) return;
@@ -146,6 +148,15 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   <ExternalLink className="w-3 h-3" />
                 </a>
               )}
+              <a
+                href={kindleUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-stone-500 hover:text-[#8B1E2D] text-[11px] inline-flex items-center gap-1"
+              >
+                <span>Acheter / rechercher l'édition Kindle sur Amazon</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
 
             {/* Right Column: Title, Synopsis, Format Choice or Unpublished Notice */}

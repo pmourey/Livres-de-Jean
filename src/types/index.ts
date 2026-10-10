@@ -38,6 +38,7 @@ export interface Book {
   coverAccentColor: string;
   motif: 'shield' | 'fortress' | 'laurel' | 'map' | 'scroll' | 'cross' | 'moon';
   amazonUrl?: string;
+  amazonKindleUrl?: string;
   digitalPdfUrl: string; // Accessible uniquement après commande payée
   isUnpublished?: boolean; // Manuscrit inédit, hors commerce (sans ISBN / pas de dépôt légal)
   availabilityNotice?: string; // Information sur la diffusion future (PDF / impression à la demande)
@@ -77,6 +78,11 @@ export interface RelayPoint {
 }
 
 export type PaymentMethodType = 'stripe_card' | 'paypal' | 'cheque_postal' | 'virement_bancaire';
+
+export type PaymentProviderLink = {
+  stripeCheckoutUrl?: string;
+  paypalCheckoutUrl?: string;
+};
 
 export type OrderStatus = 'attente_cheque' | 'attente_virement' | 'payee' | 'en_preparation' | 'expediee' | 'livree' | 'annulee';
 

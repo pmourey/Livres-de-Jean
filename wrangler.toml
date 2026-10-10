@@ -1,0 +1,10 @@
+name = "livres-de-jean-payments"
+main = "src/worker.ts"
+compatibility_date = "2026-05-03"
+
+[vars]
+SITE_URL = "https://pmourey.github.io/Livres-de-Jean"
+STRIPE_RETURN_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=stripe-success"
+STRIPE_CANCEL_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=stripe-cancel"
+PAYPAL_RETURN_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=paypal-success"
+PAYPAL_CANCEL_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=paypal-cancel"

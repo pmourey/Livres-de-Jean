@@ -131,6 +131,85 @@ Le déploiement est lancé depuis votre ordinateur ; le paquet publie le contenu
 
 **Important :** si vous avez créé le workflow de la méthode 1, il se lancera à chaque push sur `main` et risque d’échouer ou d’entrer en conflit avec cette méthode. Supprimez `.github/workflows/deploy.yaml` (ou désactivez-le dans l’onglet **Actions**) si vous choisissez la méthode 2.
 
+### Configuration Stripe / PayPal / Kindle
+
+L’application est un site statique : pour éviter de manipuler des cartes bancaires côté navigateur, la configuration recommandée est d’utiliser des **liens de paiement hébergés** Stripe ou PayPal.
+
+1. Créer un fichier `.env.local` à la racine du projet.
+2. Renseigner les liens réels de paiement :
+
+```bash
+VITE_STRIPE_PAYMENT_LINK=https://buy.stripe.com/...
+VITE_PAYPAL_PAYMENT_LINK=https://www.paypal.com/ncp/payment/...
+```
+
+3. Redémarrer `npm run dev` après modification.
+
+Le site calcule les frais de port en local, puis envoie le total au Worker Cloudflare qui crée la transaction Stripe ou PayPal et redirige vers le prestataire.
+
+### Variables utiles pour le front
+
+Le front n’a besoin que d’une variable :
+
+```bash
+VITE_PAYMENTS_API_BASE=http://localhost:8787
+```
+
+En production, remplace-la par l’URL publique du Worker Cloudflare, par exemple :
+
+```bash
+VITE_PAYMENTS_API_BASE=https://ton-worker.workers.dev
+```
+
+### Variables Cloudflare
+
+Dans Cloudflare Dashboard → Workers & Pages → ton Worker → Settings → Variables and Secrets :
+
+- `STRIPE_SECRET_KEY` dans **Secrets**
+- `PAYPAL_CLIENT_ID` dans **Secrets**
+- `PAYPAL_CLIENT_SECRET` dans **Secrets**
+- `PAYPAL_API_BASE` dans **Variables** :
+  - `https://api-m.sandbox.paypal.com` pour les tests
+  - `https://api-m.paypal.com` en production
+
+Le Worker expose :
+- `GET /health`
+- `GET /`
+- `POST /checkout/stripe`
+- `POST /checkout/paypal`
+
+Pour les boutons Kindle, l’application génère un lien de recherche Amazon Kindle à partir du titre et de l’auteur. Si vous avez des ASIN Kindle précis, vous pouvez aussi les enregistrer directement dans `src/data/initialData.ts` via `amazonKindleUrl`.
+
+### Déploiement du paiement sur Cloudflare Workers
+
+Le site peut rester sur GitHub Pages, et la partie paiement peut être déployée séparément sur Cloudflare Workers.
+
+1. Installer les dépendances :
+
+```bash
+npm install
+```
+
+2. Se connecter à Cloudflare :
+
+```bash
+npx wrangler login
+```
+
+3. Déployer le Worker :
+
+```bash
+npm run worker:deploy
+```
+
+4. Tester en local :
+
+```bash
+npm run worker:dev
+```
+
+Le fichier `wrangler.toml` configure les URL de retour vers le site GitHub Pages. Le Worker crée la session Stripe / la commande PayPal à partir du total envoyé par le front.
+
 ## Données et configuration
 
 Le site est une application statique : aucune variable d’environnement ni aucun serveur n’est requis pour le déploiement GitHub Pages. Les données de panier, de compte et de commandes sont conservées dans le `localStorage` du navigateur et ne sont pas partagées entre appareils ou utilisateurs.

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CartItem, ShippingMethodId, PaymentMethodType, RelayPoint, Order, UserAccount, CustomerAddress } from '../types';
 import { RelayPointPicker } from './RelayPointPicker';
 import { INITIAL_RELAY_POINTS, AUTHOR_INFO } from '../data/initialData';
+import { PAYPAL_PAYMENT_LINK, PAYMENTS_API_BASE, STRIPE_PAYMENT_LINK } from '../config/commerce';
 import { 
   X, Check, Lock, ShieldCheck, CreditCard, ArrowRight, ArrowLeft, 
   Truck, MapPin, Building, FileText, AlertCircle, Sparkles 
@@ -52,6 +53,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [cardExpiry, setCardExpiry] = useState('12/28');
   const [cardCvc, setCardCvc] = useState('842');
   const [cardHolder, setCardHolder] = useState(`${address.firstName} ${address.lastName}`);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Calculations
   const isAllDigital = items.length > 0 && items.every((i) => i.format === 'numerique_pdf');
@@ -144,14 +146,39 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }, 1200);
   };
 
-  const handleCardPayment = () => {
-    // Trigger simulated 3D Secure verification
-    setShow3DSecureModal(true);
+  const redirectToHostedCheckout = async (path: '/checkout/stripe' | '/checkout/paypal') => {
+    setIsProcessing(true);
+    setPaymentError(null);
+
+    try {
+      const response = await fetch(`${PAYMENTS_API_BASE}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ total: grandTotal })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Impossible de créer la transaction');
+      }
+
+      const redirectUrl = path === '/checkout/stripe' ? data.checkoutUrl : data.approveUrl;
+      if (!redirectUrl) {
+        throw new Error('URL de paiement manquante');
+      }
+
+      handleCompleteOrder(path === '/checkout/stripe' ? 'stripe_card' : 'paypal');
+      window.location.assign(redirectUrl);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : 'Erreur de paiement');
+      setIsProcessing(false);
+    }
   };
 
-  const confirm3DSecure = () => {
-    setShow3DSecureModal(false);
-    handleCompleteOrder('stripe_card');
+  const handleCardPayment = () => {
+    void redirectToHostedCheckout('/checkout/stripe');
   };
 
   return (
@@ -598,6 +625,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {/* Payment Gateway 1: Stripe Credit Card */}
                   {paymentMethod === 'stripe_card' && (
                     <div className="bg-white p-4.5 rounded-md border border-stone-200 space-y-3.5">
+                      {STRIPE_PAYMENT_LINK && (
+                        <a
+                          href={STRIPE_PAYMENT_LINK}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full inline-flex items-center justify-center gap-2 py-3 rounded bg-[#635BFF] text-white text-xs font-bold shadow transition-colors hover:opacity-95"
+                        >
+                          Ouvrir le paiement Stripe sécurisé
+                        </a>
+                      )}
                       <div className="flex items-center justify-between pb-2 border-b border-stone-100">
                         <span className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
                           <Lock className="w-3.5 h-3.5 text-emerald-600" /> Passerelle Stripe sécurisée
@@ -667,14 +704,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         />
                       </div>
 
+                      {paymentError && (
+                        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                          {paymentError}
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={handleCardPayment}
                         disabled={isProcessing}
-                        className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-bold rounded shadow transition-colors"
+                        className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-[#8B1E2D] hover:bg-[#721824] disabled:opacity-60 text-white text-xs font-bold rounded shadow transition-colors"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Payer {Number(grandTotal || 0).toFixed(2)} € par Carte Bancaire</span>
+                        <span>{isProcessing ? 'Redirection vers Stripe…' : `Payer ${Number(grandTotal || 0).toFixed(2)} € par Carte Bancaire`}</span>
                       </button>
                     </div>
                   )}
@@ -682,6 +725,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {/* Payment Gateway 2: PayPal Checkout */}
                   {paymentMethod === 'paypal' && (
                     <div className="bg-sky-50/50 p-4.5 rounded-md border border-sky-200 space-y-3.5">
+                      {PAYPAL_PAYMENT_LINK && (
+                        <a
+                          href={PAYPAL_PAYMENT_LINK}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full inline-flex items-center justify-center gap-2 py-3 rounded bg-[#003087] text-white text-xs font-bold shadow transition-colors hover:opacity-95"
+                        >
+                          Ouvrir le paiement PayPal sécurisé
+                        </a>
+                      )}
                       <div className="text-center py-2">
                         <div className="inline-flex items-center gap-1 text-lg font-black tracking-tight text-[#003087]">
                           <span>Pay</span>
@@ -704,15 +757,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                       </div>
 
+                      {paymentError && (
+                        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                          {paymentError}
+                        </div>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => handleCompleteOrder('paypal')}
+                        onClick={() => void redirectToHostedCheckout('/checkout/paypal')}
                         disabled={isProcessing}
-                        className="w-full py-3 bg-[#FFC439] hover:bg-[#F4B41A] text-[#111] text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-[#FFC439] hover:bg-[#F4B41A] disabled:opacity-60 text-[#111] text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
                       >
                         <span className="font-black text-[#003087]">Pay</span>
                         <span className="font-black text-[#0079C1] -ml-1">Pal</span>
-                        <span>· Régler {Number(grandTotal || 0).toFixed(2)} €</span>
+                        <span>{isProcessing ? 'Redirection vers PayPal…' : `· Régler ${Number(grandTotal || 0).toFixed(2)} €`}</span>
                       </button>
                     </div>
                   )}
