@@ -1,8 +1,8 @@
 import { Book, Order, ClaimTicket, RelayPoint, UserAccount } from '../types';
 
-export const GOOGLE_DRIVE_PDF_FOLDER = 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing';
+export const GOOGLE_DRIVE_PDF_FOLDER = 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'; //[cite: 11]
 
-export const INITIAL_BOOKS: Book[] = [
+export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
   // 1. HISTOIRE DE GERGOVIE - TOME 1
   {
     id: 'mourey-gergovie-tome-1',
@@ -17,9 +17,9 @@ export const INITIAL_BOOKS: Book[] = [
     isbn10: '2950729517',
     dimensions: '15 × 21 cm, broché avec cartes et relevés topographiques',
     weightGrams: 420,
-    price: 22.0, // Format Papier broché
-    priceEbook: 9.9, // Format Numérique PDF payant
-    priceCombo: 26.0, // Pack Duo Papier + PDF
+    price: 22.0,
+    priceEbook: 9.9,
+    priceCombo: 26.0,
     category: 'Gergovie & Gaule',
     shortDescription:
       "Une relecture méthodique des Commentaires de César (Livre VII) confrontée au relief véritable du haut plateau du Crest et des lignes romaines.",
@@ -30,14 +30,27 @@ export const INITIAL_BOOKS: Book[] = [
       "L'ouvrage restitue minute par minute la manœuvre de diversion tentée par César, l'emballement héroïque mais désastreux de la 10e légion et la contre-attaque foudroyante des cavaliers et guerriers gaulois menés par Vercingétorix, infligeant à Rome la perte de 46 centurions et 700 légionnaires."
     ],
     tableOfContents: [
-      'Avant-propos : Pourquoi réexaminer l’énigme de Gergovie ?',
-      'Chapitre 1 : Le texte de César (Guerre des Gaules, Livre VII) au crible de l’art militaire',
-      'Chapitre 2 : La fausse piste de Merdogne et les incohérences de l’archéologie officielle',
-      'Chapitre 3 : La topographie du Crest : l’oppidum gaulois et son assiette défensive',
-      'Chapitre 4 : Les deux camps de César et le double fossé de liaison de six pieds',
-      'Chapitre 5 : La manœuvre de diversion et l’assaut avorté de la 10e légion',
-      'Chapitre 6 : La retraite tactique de César et le passage périlleux de l’Allier',
-      'Annexes & Cartographie : Relevés altimétriques comparatifs et calculs de marche'
+      "Chapitre 1 : L'énigme de Gergovie (Le mythe et la clef géologique)",
+      "Chapitre 2 : Gergovie, te voici ! (L'inversion du relief et la montagne de la Serre)",
+      "Chapitre 3 : La bataille de Gergovie, d'après César (Le compte-rendu militaire romain)",
+      "Chapitre 4 : Journal de marche d'un barde gaulois (Le point de vue celte de l'affrontement)",
+      "Chapitre 5 : Comprendre la bataille de Gergovie (Le sens des mots latins et l'art de se disculper)",
+      "Chapitre 6 : Six preuves pour Gergovie (La fontaine, les vestiges du Crest et la Salamandre de Blesle)",
+      "Chapitre 7 : Le temple de Gergovie (Le temple de Vasso Galate et Notre-Dame du Port)",
+      "Chapitre 8 : L'Atlantide (La cité gauloise et l'influence platonicienne)",
+      "Chapitre 9 : Le mystère de Gergovie (Les momies arvernes et la porte de la Limagne)",
+      "Chapitre 10 : La cité barbare (Origines des Arvernes et royauté-prêtrise)",
+      "Chapitre 11 : Les camps de César (Dispositif logistique de Gondole et tactique d'Orcet)",
+      "Chapitre 12 : La statue de Zénodore (Le Mercure géant du Puy-de-Dôme)",
+      "Chapitre 13 : Le vase de Vix (L'armée de Gergovie et la culture hellénistique)",
+      "Chapitre 14 : Splendeur de Gergovie (L'influence de Delphes et les Vierges noires)",
+      "Chapitre 15 : L'écriture de Gergovie (L'alphabet gaulois et l'origine de l'écriture)",
+      "Chapitre 16 : Un pays de rêve (Avitacus et les bains antiques)",
+      "Chapitre 17 : L'empereur de Gergovie (Avitus et le Sénat romain)",
+      "Chapitre 18 : La basilique d'Avitus (Le triomphe de l'architecture mariale)",
+      "Chapitre 19 : Tactique pour un oppidum (Poliorcétique et défense territoriale)",
+      "Chapitre 20 : L'empire de Gergovie (L'organisation de la cité antique)",
+      "Chapitre 21 : La mort de Gergovie"
     ],
     excerptTitle: 'Chapitre 4 : La réalité tactique des deux camps romains',
     excerptPages: [
@@ -51,8 +64,8 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 16,
     featured: true,
-    coverBgColor: '#6B1D28', // Deep Burgundy
-    coverAccentColor: '#D4AF37', // Gold
+    coverBgColor: '#6B1D28',
+    coverAccentColor: '#D4AF37',
     motif: 'shield',
     amazonUrl: 'https://www.amazon.fr/dp/2950729517/',
     digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
@@ -85,27 +98,24 @@ export const INITIAL_BOOKS: Book[] = [
       "L'ouvrage retrace également la célèbre bataille de 58 av. J.-C. livrée à proximité contre les 368 000 Helvètes en migration, et replace la cité éduenne comme le pivot diplomatique de toute l'Europe occidentale antique."
     ],
     tableOfContents: [
-      'Introduction : Le mystère de la capitale sacrée des Éduens',
-      'Chapitre 1 : Les voies commerciales de l’étain et du vin en Gaule (Strabon et Diodore de Sicile)',
-      'Chapitre 2 : La critique du Mont Beuvray : impossibilités climatiques et logistiques',
-      'Chapitre 3 : Le promontoire du Mont Saint-Vincent : belvédère stratégique sur quatorze départements',
-      'Chapitre 4 : La bataille de Bibracte contre les Helvètes (58 av. J.-C.) sur le terrain éduen',
-      'Chapitre 5 : La géométrie sacrée des confins de la Saône et de la Loire',
-      'Épilogue : Rétablir la vérité historique pour le patrimoine de Bourgogne'
+      "I - Le Sac de Rome : L'expansion gauloise et le reflux",
+      "II - La Guerre des Helvètes : L'émigration, le nœud de Gourdon, la bataille de Sanvignes et le dispositif de Bibracte",
+      "III - L'Empire des Éduens : Divitiac contre Arioviste, la suprématie retrouvée et la splendeur du pays éduen",
+      "IV - Le Soulèvement de Chalon : La guerre de libération, Litavic, l'oppidum de Cabillo et la société gauloise",
+      "V - La Guerre des Gaules : L'esquive de César, les batailles de cavalerie, la Gaule avant Alésia et la bataille d'Avaricum"
     ],
-    excerptTitle: 'Chapitre 3 : Le promontoire souverain du Mont Saint-Vincent',
+    excerptTitle: 'Extrait : La véritable localisation de Bibracte',
     excerptPages: [
-      "« Du sommet du Mont Saint-Vincent, la vue embrasse la totalité du pays éduen. C'est ici, sur ce plateau calcaire dominant les axes fluviaux, que battait le cœur politique de la Gaule avant la conquête. »",
-      "« Comment imaginer que les chefs éduens, maîtres de la diplomatie gauloise, aient choisi un sommet battu par les vents et isolé dans les forêts du Morvan pour tenir les assemblées générales de toutes les cités de Gaule ? Strabon nous parle d'une ville commerçante établie sur les grandes routes fluviales. Le Mont Saint-Vincent répond point par point à cette exigence. »",
-      "« Le 'bouclier éduen' symbolise la forteresse naturelle protégeant le peuple allié de Rome, au carrefour vital de la Loire et de la Saône. »"
+      "« Mont-Saint-Vincent/Bibracte: même et unique oppidum. Lorsque César campait dans la région de Toulon-sur-Arroux, il se trouvait, dit-il, à 27 kilomètres de Bibracte, mais il fallait traduire à 27 km du Mont-St-Vincent et non à 27 km du Mont-Beuvray. »",
+      "« Comme à Alésia et comme au Mont-Beuvray, la porte de l'oppidum-fort s'ouvrait sur le plateau dans l'oppidum-enclos, là où se dressaient et où se dressent encore les maisons de Bibracte. »"
     ],
     keyQuotes: [
-      "« Bibracte n'était pas un refuge forestier improvisé, mais le siège d'un Sénat républicain gaulois qui traitait d'égal à égal avec le Sénat romain sous le titre officiel de Frères et Alliés du peuple romain. »",
-      "« Le Mont Saint-Vincent offre le seul observatoire militaire capable de surveiller d'un seul regard les mouvements de troupes entre le bassin rhodanien et le bassin ligérien. »"
+      "« Autun et Mont-St-Vincent ne formaient qu'une seule et même cité. Nous l'avons appelée la cité double. »",
+      "« Ce n'est pas dans une civilisation importée d'Italie qu'il nous faut rechercher nos profondes racines, mais bel et bien dans la société gauloise antique. »"
     ],
     inStock: 22,
     featured: true,
-    coverBgColor: '#1E2D3D', // Deep Navy
+    coverBgColor: '#1E2D3D',
     coverAccentColor: '#E6C687',
     motif: 'fortress',
     amazonUrl: 'https://www.amazon.fr/dp/2950729509/',
@@ -138,11 +148,10 @@ export const INITIAL_BOOKS: Book[] = [
       "L'ouvrage lève également le voile sur la figure tragique de Dumnorix l'Éduen, frère du druide Diviciacos : chef de la cavalerie, patriote indomptable refusant l'hégémonie césarienne, il mena la résistance nationale jusqu'à son assassinat sur ordre de César en 54 av. J.-C."
     ],
     tableOfContents: [
-      'Chapitre 1 : Les maîtres de la forge et du minerai en Saône-et-Loire',
-      'Chapitre 2 : L’épée celtique longue face au glaive court romain : tactique de duel',
-      'Chapitre 3 : Dumnorix le rebelle et l’escadron des mille cavaliers d’élite',
-      'Chapitre 4 : Les sanctuaires d’armes consacrées et les sources d’eaux vives',
-      'Chapitre 5 : Le drame de 52 av. J.-C. : l’ultime serment militaire de Bibracte'
+      "I - Le Nœud Gordien : Augustodunum, Alisincum et le duel Vercingétorix contre César",
+      "II - Un Pays Toujours Gaulois : La Gaule occupée face à la Gaule libre",
+      "III - L'Empire des Gaules : La révolte de Sacrovir, le soulèvement de Vindex et la bataille de Mursa",
+      "IV - L'Héritage Éduen : Le royaume burgonde, la reine Brunehild et la transmission de Bibracte à Paris"
     ],
     excerptTitle: 'Chapitre 2 : La métallurgie de guerre et la tactique éduenne',
     excerptPages: [
@@ -155,7 +164,7 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 14,
     featured: false,
-    coverBgColor: '#243D30', // Antique Forest Green
+    coverBgColor: '#243D30',
     coverAccentColor: '#DFBD74',
     motif: 'laurel',
     amazonUrl: 'https://www.decitre.fr/livres/histoire-de-bibracte-9782950729521.html',
@@ -188,11 +197,12 @@ export const INITIAL_BOOKS: Book[] = [
       "L'auteur examine l'orientation des lieux de culte de Saône-et-Loire par rapport au lever du soleil aux solstices et la filiation entre la divinité solaire gauloise (Belenos / Lug) et les premières dévotions gallo-romaines."
     ],
     tableOfContents: [
-      'Chapitre 1 : Le panthéon gaulois : Lug, Belenos et Taranis',
-      'Chapitre 2 : Le calendrier de Coligny et la science astronomique druidique',
-      'Chapitre 3 : Les orientations solaires des temples et des oppida',
-      'Chapitre 4 : La colline rayonnante : topographie cultuelle du Mont Saint-Vincent',
-      'Chapitre 5 : Du culte solaire celtique à l’avènement de la lumière chrétienne'
+      "I - Le Dieu de Gourdon : Le temple de Bibracte, le mystère du druidisme et l'Apocalypse de saint Jean",
+      "II - Le Dieu de Chalon : La forteresse de Dieu et le temple de Cabillo",
+      "III - Grands Thèmes du Druidisme : Dieu et l'homme face au sacrifice",
+      "IV - Le Dieu d'Autun : La splendeur de l'astrologie antique et l'explosion du ciel",
+      "V - Le Dieu de Vézelay : La splendeur d'une basilique alchimique",
+      "VI - Le Royaume de Dieu : Les étoiles de la terre et le Dieu des Francs"
     ],
     excerptTitle: 'Chapitre 2 : La science astronomique des prêtres gaulois',
     excerptPages: [
@@ -205,7 +215,7 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 18,
     featured: false,
-    coverBgColor: '#5A2E1A', // Terracotta Gold
+    coverBgColor: '#5A2E1A',
     coverAccentColor: '#F5C77E',
     motif: 'scroll',
     amazonUrl: 'https://www.amazon.fr/dp/2950729533/',
@@ -238,11 +248,12 @@ export const INITIAL_BOOKS: Book[] = [
       "Émile Mourey retrace le passage souterrain des symboles celtiques dans les cryptes romanes de Bourgogne, le culte des Vierges Noires et la toponymie des forêts profondes du pays de Charolles et d'Autun."
     ],
     tableOfContents: [
-      'Chapitre 1 : Le tabou de l’écriture et la mémoire orale millénaire',
-      'Chapitre 2 : Les sanctuaires des eaux souterraines et des gouffres',
-      'Chapitre 3 : La résistance spirituelle après Alésia et l’interdiction impériale romaine',
-      'Chapitre 4 : La survivance du culte celtique dans les églises romanes bourguignonnes',
-      'Synthèse générale : Le legs impérissable des Éduens pour l’Occident'
+      "I - Naissance d'une conscience (première approche) : La prière des mégalithes et le mystère de la grande pyramide",
+      "II - Une prise de conscience (Abraham) : La ville ambulante et la difficile colonisation d'Isaac",
+      "III - Montée de conscience (Isaac, Jacob, Joseph) : Face aux Hittites, la domination araméenne et le repli en Égypte",
+      "IV - Naissance d'une conscience (deuxième approche) : Les départs d'Adam, Noé et Hammourabi",
+      "V - A la recherche d'une conscience (Moïse) : Le coup de force et le don de la Loi",
+      "VI - De Jérusalem à Bibracte : La colonie de Tyr, les temples et le renouveau d'Autun"
     ],
     excerptTitle: 'Chapitre 3 : La mémoire gauloise sous le voile de Rome',
     excerptPages: [
@@ -255,7 +266,7 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 15,
     featured: false,
-    coverBgColor: '#25242C', // Dark Slate
+    coverBgColor: '#25242C',
     coverAccentColor: '#D97706',
     motif: 'shield',
     amazonUrl: 'https://www.amazon.fr/dp/2950729541/',
@@ -288,12 +299,11 @@ export const INITIAL_BOOKS: Book[] = [
       "Ce tome 1 paru en juillet 1996 analyse les sources documentaires profanes (Tacite, Annales XV ; Suétone ; Flavius Josèphe), la géographie des déplacements en Galilée et à Jérusalem, les lois pénales romaines (lex Iulia de maiestate) et la confrontation politique avec le Sanhédrin sacerdotal."
     ],
     tableOfContents: [
-      'Introduction : La quête de l’historicité rigoureuse du personnage du Christ',
-      'Chapitre 1 : L’empire de Tibère et l’administration de la province romaine de Judée',
-      'Chapitre 2 : La confrontation des sources : évangiles, Flavius Josèphe, Tacite et Suétone',
-      'Chapitre 3 : Topographie des déplacements en Judée et réalités archéologiques',
-      'Chapitre 4 : Le procès sous Ponce Pilate au regard du droit impérial romain',
-      'Chapitre 5 : Les premiers cercles de témoins, les Esséniens et la transmission primitive'
+      "I - Jésus du ciel : Le char divin d'Ézéchiel, les quatre roues de l'Évangile et le judéo-druidisme",
+      "II - La cité de Nazareth : L'époque de Constantin, des Cananéens et des Hérodiens",
+      "III - Le plan essénien : Les exilés de Babylone, la guerre sainte et les figures de Simon et Jean",
+      "IV - Le livre de Jacques : L'appel historique et les visions de Thomas",
+      "V - Le livre de Jean-Baptiste : Le fils de l'homme, le pain de vie et la relecture de Jean"
     ],
     excerptTitle: 'Chapitre 4 : L’épreuve du prétoire romain et la lex Iulia',
     excerptPages: [
@@ -306,7 +316,7 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 19,
     featured: true,
-    coverBgColor: '#3B1B2B', // Royal Plum
+    coverBgColor: '#3B1B2B',
     coverAccentColor: '#E2B86E',
     motif: 'cross',
     amazonUrl: 'https://www.amazon.fr/dp/295072955X/',
@@ -339,11 +349,8 @@ export const INITIAL_BOOKS: Book[] = [
       "Émile Mourey étudie les premières épitaphes, les martyrs de Lyon en 177 sous Marc Aurèle (sainte Blandine, saint Pothin), la confrontation avec le paganisme gaulois et la métamorphose de l'Occident chrétien."
     ],
     tableOfContents: [
-      'Chapitre 1 : Les routes maritimes et terrestres des premiers apôtres',
-      'Chapitre 2 : L’axe rhodanien : de Massilia aux cités marchandes de Bourgogne',
-      'Chapitre 3 : Les martyrs de Lyon de 177 et la mémoire éduenne',
-      'Chapitre 4 : La conversion des élites sénatoriales gallo-romaines',
-      'Épilogue : De la Gaule antique à la France médiévale'
+      "Livre I : La Chute de Jérusalem (La grande guerre des Juifs, De Jean à Marc, Pour comprendre Marc, Jésus guérit les malades, Gamala le rocher de Dieu, L'échec de Nazareth, Théogonie du fils de l'homme)",
+      "Livre II : Le Livre de Marc (La passion de Magdala selon Jean-Baptiste, L'après-Jésus, La crise d'Antioche, Le concile de Jérusalem, A la conquête du monde, L'Épître aux Hébreux, L'appel au calme, Saul et Philippe, Gamala, De l'incarnation, Une cité dans l'Histoire)"
     ],
     excerptTitle: 'Chapitre 2 : La remontée du couloir rhodanien et de la Saône',
     excerptPages: [
@@ -356,7 +363,7 @@ export const INITIAL_BOOKS: Book[] = [
     ],
     inStock: 17,
     featured: false,
-    coverBgColor: '#34281E', // Dark Ochre
+    coverBgColor: '#34281E',
     coverAccentColor: '#DFBD74',
     motif: 'cross',
     amazonUrl: 'https://www.amazon.fr/dp/2950729568/',
@@ -482,14 +489,18 @@ export const INITIAL_BOOKS: Book[] = [
       "L'auteur rappelle que pour comprendre religions et civilisations, il faut en dégager les ressorts historiques véritables, loin de l'obscurantisme et du fanatisme contemporain."
     ],
     tableOfContents: [
-      'Introduction : Pour une approche historique et rationnelle des origines de l’islam',
-      'Chapitre 1 : L’Arabie au VIe siècle : entre Empire byzantin chrétien et Empire sassanide',
-      'Chapitre 2 : La Mecque marchande, la Ka’ba et le clan des Banu Hachim',
-      'Chapitre 3 : La jeunesse de Mahomet, le mariage avec Khadija et les caravanes de Syrie',
-      'Chapitre 4 : La retraite du mont Hira et les premières révélations selon la Chronique de Tabari',
-      'Chapitre 5 : La prédication mecquoise : appel à l’Unicité divine et fracture tribale',
-      'Chapitre 6 : Les persécutions quraychites, l’exil d’Abyssinie et l’année de la tristesse',
-      'Épilogue du Tome 1 : L’impasse mecquoise et l’appel des tribus de Yathrib'
+      "Chapitre 1 : Ténèbres et lumière (La grotte du prophète et le moment du choix)",
+      "Chapitre 2 : La Mecque, naissance d'un Lieu saint (Le temple d'Haran et la pierre noire)",
+      "Chapitre 3 : Mahomet, qui es-tu ? (Filiation spirituelle et clans)",
+      "Chapitre 4 : Une impasse d'évolution (Le malentendu chrétien et l'influence essénienne)",
+      "Chapitre 5 : Paul à La Mecque (La première prédication)",
+      "Chapitre 6 : Mahomet à Bosra (L'étoile et les moines de Ba'hirâ)",
+      "Chapitre 7 : Les femmes de Mahomet et leurs maisons (Conception miraculeuse et fiançailles)",
+      "Chapitre 8 : La reconstruction du temple (Le péché de La Mecque et l'amitié abyssine)",
+      "Chapitre 9 : L'esprit qui descend (L'appel au soulèvement)",
+      "Chapitre 10 : Le semeur est sorti pour semer (Les premières conversions)",
+      "Chapitre 11 : La parole incomprise et persécutée (L'opposition mecquoise)",
+      "Chapitre 12 : Mahomet souffrant (La fuite des disciples et l'agonie d'Abou Thalib)"
     ],
     excerptTitle: 'Chapitre 4 : La vision du mont Hira selon la Chronique de Tabari',
     excerptPages: [
@@ -535,14 +546,15 @@ export const INITIAL_BOOKS: Book[] = [
       "L'ouvrage examine les grandes confrontations militaires décrites avec précision par Tabari (batailles de Badr, d'Uhud, siège du Fossé), l'évolution de la législation coranique, le chef-d'œuvre diplomatique du traité d'al-Hudaybiyya, puis la prise pacifique de La Mecque en 630. Une synthèse impartiale et rigoureuse sur la genèse d'un empire."
     ],
     tableOfContents: [
-      'Chapitre 1 : L’Hégire (622) : rupture chronologique et fondation de l’Umma',
-      'Chapitre 2 : La Charte de Médine : diplomatie, citoyenneté et pluralisme religieux',
-      'Chapitre 3 : Les premières campagnes militaires selon Tabari : de Badr à Uhud',
-      'Chapitre 4 : Le siège de la Tranchée et les ruptures d’alliances tribales',
-      'Chapitre 5 : Le pacte d’al-Hudaybiyya : la victoire politique de la négociation',
-      'Chapitre 6 : L’entrée victorieuse à La Mecque et la purification des idoles de la Ka’ba',
-      'Chapitre 7 : Le pèlerinage d’Adieu et la mort du Prophète (632)',
-      'Épilogue : Bilan historique de l’héritage arabo-musulman'
+      "Chapitre 13 : Mahomet ressuscité (Le retour à La Mecque et l'appel aux chrétiens)",
+      "Chapitre 14 : Le début de la guerre (Une ère nouvelle et les sept sommations)",
+      "Chapitre 15 : Le grand combat de Beder (L'affrontement et la déroute koréishite)",
+      "Chapitre 16 : Le retour à Médine (La douleur des femmes et La Mecque en état de choc)",
+      "Chapitre 17 : Le chemin de croix des Juifs (Expéditions et assassinats)",
+      "Chapitre 18 : Le grand combat d'Ohod (Mobilisation et résistance héroïque)",
+      "Chapitre 19 : La bataille des dattiers (Attentats et opérations de blocus)",
+      "Chapitre 20 : La bataille du fossé (Alliances et le premier holocauste juif)",
+      "Chapitre 21 : Le malaise d'Aïscha (La grandeur et la misère de l'armée musulmane)"
     ],
     excerptTitle: 'Chapitre 2 : La Charte de Médine selon les Annales de Tabari',
     excerptPages: [
@@ -588,14 +600,13 @@ export const INITIAL_BOOKS: Book[] = [
       "Un vibrant plaidoyer pour la réhabilitation du patrimoine authentique de la Gaule et de la Bourgogne."
     ],
     tableOfContents: [
-      'Introduction : Vingt-cinq années de combat pour la vérité du sol',
-      'Chapitre 1 : Les erreurs fondamentales de l’archéologie officielle du Second Empire',
-      'Chapitre 2 : La confédération des cités gauloises : souveraineté et libertés locales',
-      'Chapitre 3 : La géographie sacrée : du Mont Saint-Vincent aux rives de la Saône',
-      'Chapitre 4 : La Guerre des Gaules au crible de la tactique d’infanterie',
-      'Chapitre 5 : L’Empire des Gaules au IIIe siècle : Victorina et le refus de la décadence romaine',
-      'Chapitre 6 : La survie de l’héritage celtique dans l’art roman de Bourgogne',
-      'Épilogue : Ce que la France et l’Europe doivent à leurs ancêtres gaulois'
+      "Titre I : Du lycée Papillon au Collège de France (L'erreur de Napoléon III et le verrouillage de l'information)",
+      "Titre II : Alésia (La bataille de cavalerie, la cité mandubienne, la castramétation et le cheval de Vercingétorix)",
+      "Titre III : Bibracte (Origine des Celtes, la guerre des Helvètes et le bilan des fouilles du mont Beuvray)",
+      "Titre IV : Gergovie (Analyse du terrain, la manœuvre de César et l'Atlantide)",
+      "Titre V : Uxellodunum, Bagacum, Cabillodunum (Identification des sites, chartes médiévales et la Vierge au chancelier Rolin)",
+      "Titre VI : Au sujet de la sagesse des Modernes (Foi, loi et débats philosophiques)",
+      "Titre VII : La Gaule d'après la carte de Peutinger (Réseau routier antique, cours d'eau et interprétation mystique du monde)"
     ],
     excerptTitle: 'Extrait de l’Introduction : Le devoir de vérité pour la Gaule',
     excerptPages: [
