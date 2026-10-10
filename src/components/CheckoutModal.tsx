@@ -24,6 +24,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOrderCreated
 }) => {
   if (!isOpen) return null;
+  const isProduction = import.meta.env.PROD;
 
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Client/Adresse, 2: Livraison, 3: Paiement
   const [isProcessing, setIsProcessing] = useState(false);
@@ -635,74 +636,78 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           Ouvrir le paiement Stripe sécurisé
                         </a>
                       )}
-                      <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                        <span className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-emerald-600" /> Passerelle Stripe sécurisée
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCardNumber('4242 4242 4242 4242');
-                            setCardExpiry('12/28');
-                            setCardCvc('842');
-                          }}
-                          className="text-[10px] text-[#8B1E2D] hover:underline font-medium"
-                        >
-                          Remplir carte de test (4242...)
-                        </button>
-                      </div>
+                      {!isProduction && (
+                        <>
+                          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                            <span className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
+                              <Lock className="w-3.5 h-3.5 text-emerald-600" /> Passerelle Stripe sécurisée
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCardNumber('4242 4242 4242 4242');
+                                setCardExpiry('12/28');
+                                setCardCvc('842');
+                              }}
+                              className="text-[10px] text-[#8B1E2D] hover:underline font-medium"
+                            >
+                              Remplir carte de test (4242...)
+                            </button>
+                          </div>
 
-                      <div>
-                        <label className="block text-[11px] font-medium text-stone-600 mb-1">
-                          Numéro de carte bancaire
-                        </label>
-                        <input
-                          type="text"
-                          value={cardNumber}
-                          onChange={(e) => setCardNumber(e.target.value)}
-                          placeholder="4242 4242 4242 4242"
-                          className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
-                        />
-                      </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-stone-600 mb-1">
+                              Numéro de carte bancaire
+                            </label>
+                            <input
+                              type="text"
+                              value={cardNumber}
+                              onChange={(e) => setCardNumber(e.target.value)}
+                              placeholder="4242 4242 4242 4242"
+                              className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
+                            />
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-medium text-stone-600 mb-1">
-                            Date d'expiration
-                          </label>
-                          <input
-                            type="text"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(e.target.value)}
-                            placeholder="MM/AA"
-                            className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-stone-600 mb-1">
-                            Cryptogramme (CVC)
-                          </label>
-                          <input
-                            type="text"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value)}
-                            placeholder="CVC"
-                            className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
-                          />
-                        </div>
-                      </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-medium text-stone-600 mb-1">
+                                Date d'expiration
+                              </label>
+                              <input
+                                type="text"
+                                value={cardExpiry}
+                                onChange={(e) => setCardExpiry(e.target.value)}
+                                placeholder="MM/AA"
+                                className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-stone-600 mb-1">
+                                Cryptogramme (CVC)
+                              </label>
+                              <input
+                                type="text"
+                                value={cardCvc}
+                                onChange={(e) => setCardCvc(e.target.value)}
+                                placeholder="CVC"
+                                className="w-full text-xs font-mono px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
+                              />
+                            </div>
+                          </div>
 
-                      <div>
-                        <label className="block text-[11px] font-medium text-stone-600 mb-1">
-                          Nom inscrit sur la carte
-                        </label>
-                        <input
-                          type="text"
-                          value={cardHolder}
-                          onChange={(e) => setCardHolder(e.target.value)}
-                          className="w-full text-xs px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
-                        />
-                      </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-stone-600 mb-1">
+                              Nom inscrit sur la carte
+                            </label>
+                            <input
+                              type="text"
+                              value={cardHolder}
+                              onChange={(e) => setCardHolder(e.target.value)}
+                              className="w-full text-xs px-3 py-2 border border-stone-300 rounded focus:ring-1 focus:ring-[#8B1E2D]"
+                            />
+                          </div>
+                        </>
+                      )}
 
                       {paymentError && (
                         <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
