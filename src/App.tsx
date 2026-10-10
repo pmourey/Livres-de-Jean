@@ -168,6 +168,52 @@ export default function App() {
     localStorage.setItem('emile_mourey_claims', JSON.stringify(claims));
   }, [claims]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    if (paymentStatus !== 'paypal-success' && paymentStatus !== 'stripe-success') {
+      return;
+    }
+
+    const pendingOrderJson = sessionStorage.getItem('pending_payment_order');
+    if (!pendingOrderJson) {
+      return;
+    }
+
+    try {
+      const pendingOrder = JSON.parse(pendingOrderJson) as Order;
+      const finalizedOrder: Order = {
+        ...pendingOrder,
+        paymentStatus: 'paye',
+        orderStatus: pendingOrder.orderStatus === 'attente_cheque' || pendingOrder.orderStatus === 'attente_virement'
+          ? pendingOrder.orderStatus
+          : pendingOrder.orderStatus === 'livree'
+          ? 'livree'
+          : 'payee',
+        notes: pendingOrder.notes || 'Paiement en ligne sécurisé validé.'
+      };
+
+      setOrders((prev) => {
+        if (prev.some((order) => order.id === finalizedOrder.id)) {
+          return prev;
+        }
+        return [finalizedOrder, ...prev];
+      });
+      setConfirmedOrder(finalizedOrder);
+      setCart([]);
+    } catch {
+      // Ignore malformed pending orders and leave the success page untouched.
+    } finally {
+      sessionStorage.removeItem('pending_payment_order');
+      sessionStorage.removeItem('pending_payment_provider');
+      params.delete('payment');
+      params.delete('token');
+      params.delete('PayerID');
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, []);
+
   // Cart operations
   const handleAddToCart = (
     book: Book,

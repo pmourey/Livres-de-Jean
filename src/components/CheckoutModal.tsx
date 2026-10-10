@@ -96,13 +96,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const shippingCost = calculateShippingCost();
   const grandTotal = Number((subtotal || 0) + (shippingCost || 0));
 
-  // Finalize order
-  const handleCompleteOrder = (method: PaymentMethodType) => {
-    setIsProcessing(true);
-
+  const buildOrder = (method: PaymentMethodType): Order => {
     const orderNumber = `CMD-2026-0${Math.floor(100 + Math.random() * 900)}`;
 
-    const newOrder: Order = {
+    return {
       id: orderNumber,
       date: new Date().toISOString().split('T')[0],
       customer: { ...address },
@@ -139,6 +136,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         ? 'Chèque postal à l’ordre d’Émile Mourey à adresser par courrier.' 
         : 'Paiement en ligne sécurisé validé.'
     };
+  };
+
+  // Finalize order
+  const handleCompleteOrder = (method: PaymentMethodType) => {
+    setIsProcessing(true);
+
+    const newOrder = buildOrder(method);
 
     setTimeout(() => {
       setIsProcessing(false);
@@ -170,7 +174,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error('URL de paiement manquante');
       }
 
-      handleCompleteOrder(path === '/checkout/stripe' ? 'stripe_card' : 'paypal');
+      const pendingOrder = buildOrder(path === '/checkout/stripe' ? 'stripe_card' : 'paypal');
+      sessionStorage.setItem('pending_payment_order', JSON.stringify(pendingOrder));
+      sessionStorage.setItem('pending_payment_provider', path === '/checkout/stripe' ? 'stripe' : 'paypal');
       window.location.assign(redirectUrl);
     } catch (error) {
       setPaymentError(error instanceof Error ? error.message : 'Erreur de paiement');
