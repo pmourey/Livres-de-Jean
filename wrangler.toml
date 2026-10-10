@@ -3,6 +3,7 @@ main = "src/worker.ts"
 compatibility_date = "2026-05-03"
 
 [vars]
+PAYPAL_API_BASE="https://api-m.paypal.com"
 SITE_URL = "https://pmourey.github.io/Livres-de-Jean"
 STRIPE_RETURN_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=stripe-success"
 STRIPE_CANCEL_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=stripe-cancel"
