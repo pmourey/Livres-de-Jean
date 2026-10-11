@@ -6,7 +6,7 @@ import { EBookReaderModal } from './EBookReaderModal';
 import { 
   Package, Clock, CheckCircle, Truck, FileText, AlertTriangle, 
   Send, ChevronRight, User, MapPin, Feather, Lock, Eye, X, 
-  ExternalLink, Download, BookOpen, ShieldCheck, Sparkles 
+  Download, BookOpen, ShieldCheck, Sparkles 
 } from 'lucide-react';
 
 interface CustomerDashboardProps {
@@ -14,6 +14,7 @@ interface CustomerDashboardProps {
   claims: ClaimTicket[];
   currentUser: UserAccount;
   books: Book[];
+  customerToken?: string;
   onOpenClaim: (orderId: string, reason: ClaimTicket['reason'], subject: string, message: string) => void;
   onSendClaimMessage: (claimId: string, text: string) => void;
   onViewBook: (bookId: string) => void;
@@ -25,6 +26,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   claims,
   currentUser,
   books,
+  customerToken,
   onOpenClaim,
   onSendClaimMessage,
   onViewBook,
@@ -85,7 +87,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             coverBgColor: '#6B1D28',
             coverAccentColor: '#D4AF37',
             motif: 'shield',
-            digitalPdfUrl: item.digitalPdfUrl || 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'
+            digitalPdfUrl: item.digitalPdfUrl || ''
           } as Book)
         };
       })
@@ -349,14 +351,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                   {isPaid ? (
                                     <>
                                       <a
-                                        href={item.digitalPdfUrl || 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'}
-                                        target="_blank"
-                                        rel="noreferrer"
+                                        href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : ''}`}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-[11px] font-semibold transition-colors shadow-2xs"
                                       >
                                         <Download className="w-3.5 h-3.5" />
-                                        <span>Télécharger le PDF</span>
-                                        <ExternalLink className="w-3 h-3 opacity-80" />
+                                        <span>Accéder au téléchargement sécurisé</span>
                                       </a>
 
                                       <button
@@ -563,14 +562,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </button>
 
                           <a
-                            href={book.digitalPdfUrl || 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'}
-                            target="_blank"
-                            rel="noreferrer"
+                            href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : ''}`}
                             className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-xs font-semibold shadow-xs transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
-                            <span>Télécharger le PDF</span>
-                            <ExternalLink className="w-3 h-3 opacity-70" />
+                            <span>Télécharger dans l'espace client</span>
                           </a>
                         </>
                       ) : (

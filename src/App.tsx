@@ -22,6 +22,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AuthorSection } from './components/AuthorSection';
 import { LegalModal } from './components/LegalModals';
 import { Footer } from './components/Footer';
+import { PAYMENTS_API_BASE } from './config/commerce';
 
 export default function App() {
   // Navigation View: 'catalog' | 'author' | 'shipping' | 'account' | 'admin'
@@ -150,6 +151,7 @@ export default function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [legalModalType, setLegalModalType] = useState<'mentions' | 'cgv' | 'shipping_info' | null>(null);
+  const [customerToken, setCustomerToken] = useState<string>(() => localStorage.getItem('emile_mourey_customer_token') || '');
 
   // Sync to local storage
   useEffect(() => {
@@ -167,6 +169,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('emile_mourey_claims', JSON.stringify(claims));
   }, [claims]);
+
+  useEffect(() => {
+    if (customerToken) {
+      localStorage.setItem('emile_mourey_customer_token', customerToken);
+    } else {
+      localStorage.removeItem('emile_mourey_customer_token');
+    }
+  }, [customerToken]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -292,6 +302,31 @@ export default function App() {
     setCart([]);
     // Show order confirmation modal
     setConfirmedOrder(newOrder);
+    void fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        phone: currentUser.phone,
+        order: newOrder
+      })
+    });
+  };
+
+  const handleCustomerLogin = async (payload: { email: string; firstName: string; lastName: string; phone: string }) => {
+    const response = await fetch(`${PAYMENTS_API_BASE}/api/account/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.error || 'Login failed');
+    }
+    setCustomerToken(data.token);
+    setCurrentUser((prev) => ({ ...prev, ...payload }));
   };
 
   // Admin actions: update status
@@ -540,6 +575,7 @@ export default function App() {
             claims={claims}
             currentUser={currentUser}
             books={books}
+            customerToken={customerToken}
             onOpenClaim={handleOpenClaim}
             onSendClaimMessage={handleSendClaimMessage}
             onViewBook={(bookId) => {

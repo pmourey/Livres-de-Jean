@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Book, Order } from '../types';
 import { 
-  X, BookOpen, Download, ExternalLink, ShieldCheck, ChevronLeft, 
+  X, BookOpen, Download, ShieldCheck, ChevronLeft, 
   ChevronRight, ZoomIn, ZoomOut, Bookmark, Layers, CheckCircle2 
 } from 'lucide-react';
 
@@ -131,16 +131,16 @@ export const EBookReaderModal: React.FC<EBookReaderModalProps> = ({
             </div>
 
             {/* Download PDF button */}
-            <a
-              href={book.digitalPdfUrl || 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#A32335] text-white rounded text-xs font-semibold shadow-xs transition-colors"
+              onClick={() => {
+                // Le téléchargement privé doit être servi par une route backend signée.
+              }}
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Télécharger PDF</span>
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </a>
+              <span className="hidden sm:inline">Téléchargement sécurisé</span>
+            </button>
 
             <button
               onClick={onClose}

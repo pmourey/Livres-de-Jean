@@ -2,6 +2,15 @@ name = "livres-de-jean-payments"
 main = "src/worker.ts"
 compatibility_date = "2026-05-03"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "livres_de_jean"
+database_id = "16181fe9-b0a5-4f20-979b-68c745f2c03d"
+
+[[r2_buckets]]
+binding = "PDFS"
+bucket_name = "ebooks-jean"
+
 [vars]
 PAYPAL_API_BASE="https://api-m.paypal.com"
 SITE_URL = "https://pmourey.github.io/Livres-de-Jean"

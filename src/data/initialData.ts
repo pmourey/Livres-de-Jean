@@ -1,6 +1,6 @@
 import { Book, Order, ClaimTicket, RelayPoint, UserAccount } from '../types';
 
-export const GOOGLE_DRIVE_PDF_FOLDER = 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'; //[cite: 11]
+export const GOOGLE_DRIVE_PDF_FOLDER = ''; //[cite: 11]
 
 export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
   // 1. HISTOIRE DE GERGOVIE - TOME 1

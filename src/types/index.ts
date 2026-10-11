@@ -96,7 +96,6 @@ export interface OrderItem {
   dedicationRequested: boolean;
   dedicationRecipient?: string;
   dedicationMessage?: string;
-  digitalPdfUrl?: string;
 }
 
 export interface CustomerAddress {
@@ -171,4 +170,16 @@ export interface UserAccount {
     city: string;
     country: string;
   };
+}
+
+export interface CustomerProfile extends UserAccount {
+  orderIds: string[];
+  digitalAccessGranted: boolean;
+}
+
+export interface CustomerSession {
+  token: string;
+  customerId: string;
+  email: string;
+  expiresAt: string;
 }

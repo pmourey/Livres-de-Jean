@@ -49,7 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newBookSubtitle, setNewBookSubtitle] = useState('');
   const [newBookPrice, setNewBookPrice] = useState('24.00');
   const [newBookPriceEbook, setNewBookPriceEbook] = useState('9.90');
-  const [newBookDigitalPdfUrl, setNewBookDigitalPdfUrl] = useState('https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing');
+  const [newBookDigitalPdfUrl, setNewBookDigitalPdfUrl] = useState('');
   const [newBookWeight, setNewBookWeight] = useState('450');
   const [newBookStock, setNewBookStock] = useState('20');
   const [newBookIsbn, setNewBookIsbn] = useState('978-2-9538412-6-8');
@@ -115,7 +115,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       coverBgColor: '#4A2818',
       coverAccentColor: '#D4AF37',
       motif: 'shield',
-      digitalPdfUrl: newBookDigitalPdfUrl || 'https://drive.google.com/drive/folders/17Y228r3cPkInk-smT1kF2tIHkxPUDwNU?usp=sharing'
+      digitalPdfUrl: newBookDigitalPdfUrl || ''
     };
 
     onAddBook(newBook);

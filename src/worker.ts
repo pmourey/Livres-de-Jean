@@ -1,10 +1,13 @@
 export interface Env {
+  DB: D1Database;
+  PDFS: R2Bucket;
   SITE_URL: string;
   STRIPE_RETURN_URL: string;
   STRIPE_CANCEL_URL: string;
   PAYPAL_RETURN_URL: string;
   PAYPAL_CANCEL_URL: string;
   PAYPAL_SUCCESS_URL: string;
+  CUSTOMER_SESSION_SECRET?: string;
   STRIPE_SECRET_KEY: string;
   PAYPAL_CLIENT_ID: string;
   PAYPAL_CLIENT_SECRET: string;
@@ -31,6 +34,40 @@ const corsHeaders = {
 const readTotal = async (request: Request) => {
   const body = await request.json().catch(() => ({}));
   return Number((body as { total?: unknown }).total);
+};
+
+const readJson = async (request: Request) => request.json().catch(() => ({}));
+
+const customerIdFromEmail = (email: string) => `cust_${email.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+
+const makePrivatePdfKey = (orderId: string, bookId: string) => `customer-pdfs/${orderId}/${bookId}.pdf`;
+const makeRootPdfKey = (bookId: string) => `${bookId}.pdf`;
+
+const signCustomerToken = async (env: Env, email: string) => {
+  const payload = `${email}:${Date.now()}`;
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(env.CUSTOMER_SESSION_SECRET || env.PAYPAL_CLIENT_SECRET || env.STRIPE_SECRET_KEY);
+  const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const token = `${btoa(payload)}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
+  return token;
+};
+
+const verifyCustomerToken = async (env: Env, token: string) => {
+  const [payloadB64, signatureB64] = token.split('.');
+  if (!payloadB64 || !signatureB64) return null;
+
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(env.CUSTOMER_SESSION_SECRET || env.PAYPAL_CLIENT_SECRET || env.STRIPE_SECRET_KEY);
+  const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const payload = atob(payloadB64);
+  const expected = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const expectedB64 = btoa(String.fromCharCode(...new Uint8Array(expected)));
+  if (expectedB64 !== signatureB64) return null;
+
+  const [email, timestamp] = payload.split(':');
+  if (!email || !timestamp) return null;
+  return { email, timestamp: Number(timestamp) };
 };
 
 const cents = (amount: number) => Math.round(amount * 100);
@@ -175,6 +212,142 @@ export default {
 
     if (url.pathname === '/payment/cancel') {
       return Response.redirect(env.STRIPE_CANCEL_URL, 302);
+    }
+
+    if (url.pathname === '/api/account/login' && request.method === 'POST') {
+      const body = await readJson(request);
+      const email = String(body?.email || '').trim().toLowerCase();
+      if (!email) {
+        return json({ error: 'Missing email' }, { status: 400 });
+      }
+      const customerId = customerIdFromEmail(email);
+      await env.DB.prepare(
+        'INSERT INTO customers (id, email, first_name, last_name, phone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO UPDATE SET first_name=excluded.first_name, last_name=excluded.last_name, phone=excluded.phone'
+      ).bind(
+        customerId,
+        email,
+        String(body?.firstName || 'Client'),
+        String(body?.lastName || ''),
+        String(body?.phone || '')
+      ).run();
+      const token = await signCustomerToken(env, email);
+      return json({
+        token,
+        profile: {
+          id: customerId,
+          email,
+          firstName: String(body?.firstName || 'Client'),
+          lastName: String(body?.lastName || ''),
+          phone: String(body?.phone || ''),
+          orderIds: [],
+          digitalAccessGranted: false
+        }
+      });
+    }
+
+    if (url.pathname === '/api/account/orders' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      const email = (url.searchParams.get('email') || session?.email || '').toLowerCase();
+      if (!email) return json({ error: 'Missing email' }, { status: 400 });
+      const customer = await env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(email).first<{ id: string }>();
+      if (!customer?.id) return json({ orders: [] });
+      const rows = await env.DB.prepare('SELECT id, payload_json FROM orders WHERE customer_id = ? ORDER BY created_at DESC').bind(customer.id).all<{ id: string; payload_json: string }>();
+      return json({ orders: (rows.results || []).map((r) => JSON.parse(r.payload_json)) });
+    }
+
+    if (url.pathname === '/api/account/orders' && request.method === 'POST') {
+      const body = await readJson(request);
+      const email = String(body?.email || '').trim().toLowerCase();
+      const order = body?.order;
+      if (!email || !order?.id) {
+        return json({ error: 'Missing email or order' }, { status: 400 });
+      }
+      const customerId = customerIdFromEmail(email);
+      await env.DB.prepare(
+        'INSERT INTO customers (id, email, first_name, last_name, phone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING'
+      ).bind(
+        customerId,
+        email,
+        String(body?.firstName || 'Client'),
+        String(body?.lastName || ''),
+        String(body?.phone || '')
+      ).run();
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO orders (id, customer_id, payload_json) VALUES (?, ?, ?)'
+      ).bind(order.id, customerId, JSON.stringify(order)).run();
+      return json({ ok: true });
+    }
+
+    if (url.pathname === '/api/account/digital' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const customer = await env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(session.email).first<{ id: string }>();
+      if (!customer?.id) return json({ downloads: [] });
+
+      const rows = await env.DB.prepare('SELECT id, payload_json FROM orders WHERE customer_id = ? ORDER BY created_at DESC').bind(customer.id).all<{ id: string; payload_json: string }>();
+      const downloads = (rows.results || []).flatMap((row) => {
+        const order = JSON.parse(row.payload_json) as { items?: Array<{ bookId: string; title: string; format: string }> };
+        return (order.items || [])
+          .filter((item) => item.format === 'numerique_pdf' || item.format === 'pack_duo')
+          .map((item) => ({
+            orderId: row.id,
+            bookId: item.bookId,
+            title: item.title,
+            downloadUrl: `/api/download/${row.id}/${item.bookId}`
+          }));
+      });
+
+      return json({ downloads });
+    }
+
+    if (url.pathname.startsWith('/api/download/') && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const [, , orderId, bookId] = url.pathname.split('/');
+      if (!orderId || !bookId) {
+        return json({ error: 'Missing order or book' }, { status: 400 });
+      }
+
+      const customer = await env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(session.email).first<{ id: string }>();
+      if (!customer?.id) return json({ error: 'Customer not found' }, { status: 404 });
+
+      const orderRow = await env.DB.prepare('SELECT payload_json FROM orders WHERE id = ? AND customer_id = ?').bind(orderId, customer.id).first<{ payload_json: string }>();
+      if (!orderRow?.payload_json) return json({ error: 'Order not found' }, { status: 404 });
+
+      const order = JSON.parse(orderRow.payload_json) as { paymentStatus?: string; items?: Array<{ bookId: string; format: string; digitalPdfUrl?: string }> };
+      if (order.paymentStatus !== 'paye') {
+        return json({ error: 'Payment not validated' }, { status: 403 });
+      }
+
+      const item = order.items?.find((entry) => entry.bookId === bookId && (entry.format === 'numerique_pdf' || entry.format === 'pack_duo'));
+      if (!item) {
+        return json({ error: 'Digital entitlement not found' }, { status: 403 });
+      }
+
+      const keyCandidates = [makePrivatePdfKey(orderId, bookId), makeRootPdfKey(bookId)];
+      let object: R2ObjectBody | null = null;
+      for (const key of keyCandidates) {
+        object = await env.PDFS.get(key);
+        if (object) break;
+      }
+      if (!object) {
+        return json({ error: 'PDF not found in storage' }, { status: 404 });
+      }
+
+      const headers = new Headers();
+      headers.set('content-type', 'application/pdf');
+      headers.set('content-disposition', `attachment; filename="${bookId}.pdf"`);
+      headers.set('cache-control', 'private, max-age=60');
+      return new Response(object.body, { headers });
     }
 
     if (
