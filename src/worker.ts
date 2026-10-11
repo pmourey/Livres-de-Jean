@@ -4,6 +4,7 @@ export interface Env {
   STRIPE_CANCEL_URL: string;
   PAYPAL_RETURN_URL: string;
   PAYPAL_CANCEL_URL: string;
+  PAYPAL_SUCCESS_URL: string;
   STRIPE_SECRET_KEY: string;
   PAYPAL_CLIENT_ID: string;
   PAYPAL_CLIENT_SECRET: string;
@@ -127,6 +128,24 @@ const paypalCreateOrder = async (env: Env, total: number) => {
   return { id: data.id as string | undefined, approveUrl };
 };
 
+const paypalCaptureOrder = async (env: Env, orderId: string) => {
+  const token = await paypalAccessToken(env);
+  const response = await fetch(`${paypalApiBase(env)}/v2/checkout/orders/${orderId}/capture`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.message || 'PayPal capture failed');
+  }
+
+  return data as { id?: string; status?: string };
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -209,6 +228,29 @@ export default {
           { error: error instanceof Error ? error.message : 'PayPal order failed' },
           { status: 500 }
         );
+      }
+    }
+
+    if ((url.pathname === '/api/payments/paypal/complete' || url.pathname === '/checkout/paypal/complete') && request.method === 'GET') {
+      const orderId = url.searchParams.get('token');
+      if (!orderId) {
+        return json({ error: 'Missing PayPal token' }, { status: 400 });
+      }
+
+      try {
+        const capture = await paypalCaptureOrder(env, orderId);
+        const redirectUrl = new URL(env.PAYPAL_SUCCESS_URL);
+        redirectUrl.searchParams.set('payment', 'paypal-success');
+        redirectUrl.searchParams.set('token', orderId);
+        if (capture.id) {
+          redirectUrl.searchParams.set('captureId', capture.id);
+        }
+        return Response.redirect(redirectUrl.toString(), 302);
+      } catch (error) {
+        const redirectUrl = new URL(env.PAYPAL_CANCEL_URL);
+        redirectUrl.searchParams.set('payment', 'paypal-error');
+        redirectUrl.searchParams.set('token', orderId);
+        return Response.redirect(redirectUrl.toString(), 302);
       }
     }
 
