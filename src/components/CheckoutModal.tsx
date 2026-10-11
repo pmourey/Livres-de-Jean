@@ -155,6 +155,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsProcessing(true);
     setPaymentError(null);
 
+    if (grandTotal <= 0) {
+      const freeOrder = buildOrder('stripe_card');
+      const finalizedFreeOrder: Order = {
+        ...freeOrder,
+        paymentMethod: path === '/checkout/paypal' ? 'paypal' : 'stripe_card',
+        paymentStatus: 'paye',
+        orderStatus: 'livree',
+        notes: 'Commande numérique gratuite validée sans passage par Stripe ou PayPal.'
+      };
+
+      setTimeout(() => {
+        setIsProcessing(false);
+        onOrderCreated(finalizedFreeOrder);
+        onClose();
+      }, 300);
+      return;
+    }
+
     try {
       const response = await fetch(`${PAYMENTS_API_BASE}${path}`, {
         method: 'POST',
