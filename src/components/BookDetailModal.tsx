@@ -38,7 +38,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   const getUnitPrice = (fmt: BookFormat): number => {
     switch (fmt) {
       case 'numerique_pdf':
-        return Number(book.priceEbook || 9.9);
+        return Number(book.priceEbook ?? 9.9);
       case 'pack_duo':
         return Number(book.priceCombo || ((book.price || 22.0) + 4.0));
       case 'papier':
@@ -267,7 +267,7 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                           eBook PDF
                         </span>
                         <span className="font-bold font-serif-display text-sm text-[#8B1E2D] tabular-nums">
-                          {Number(book.priceEbook || 9.9).toFixed(2)} €
+                          {Number(book.priceEbook ?? 9.9).toFixed(2)} €
                         </span>
                       </div>
                       <p className="text-[10px] text-stone-500 mt-1">

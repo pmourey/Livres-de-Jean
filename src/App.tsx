@@ -233,7 +233,7 @@ export default function App() {
       unitPrice !== undefined
         ? Number(unitPrice)
         : format === 'numerique_pdf'
-        ? Number(book.priceEbook || 9.9)
+        ? Number(book.priceEbook ?? 9.9)
         : format === 'pack_duo'
         ? Number(book.priceCombo || ((book.price || 22.0) + 4.0))
         : Number(book.price || 22.0);

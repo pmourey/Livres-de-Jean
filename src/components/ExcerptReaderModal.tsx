@@ -99,7 +99,7 @@ export const ExcerptReaderModal: React.FC<ExcerptReaderModalProps> = ({
                     Envie de lire la suite ?
                   </span>
                   <span className="font-bold text-[#8B1E2D] font-serif-display text-sm">
-                    Dès {Number(book.priceEbook || 9.9).toFixed(2)} €
+                    Dès {Number(book.priceEbook ?? 9.9).toFixed(2)} €
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-600 leading-relaxed">

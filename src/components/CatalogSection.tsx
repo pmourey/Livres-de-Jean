@@ -304,7 +304,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                         <div>
                           <span className="text-[11px] text-stone-500 block">Dès</span>
                           <span className="font-serif-display font-bold text-xl text-[#8B1E2D] tabular-nums">
-                            {Number(book.priceEbook || 9.9).toFixed(2)} €
+                            {Number(book.priceEbook ?? 9.9).toFixed(2)} €
                           </span>
                           <span className="text-xs text-stone-500 ml-1.5">
                             (PDF) · <strong className="text-stone-800">{Number(book.price || 22.0).toFixed(2)} €</strong> (Papier)
@@ -388,7 +388,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <div>
                   <span className="text-xs text-stone-300 block">
-                    Version PDF : <strong>{Number(featuredBook?.priceEbook || 9.9).toFixed(2)} €</strong>
+                    Version PDF : <strong>{Number(featuredBook?.priceEbook ?? 9.9).toFixed(2)} €</strong>
                   </span>
                   <span className="text-2xl font-serif-display font-bold text-[#D4AF37] tabular-nums">
                     Papier relié : {Number(featuredBook?.price || 22.0).toFixed(2)} €
