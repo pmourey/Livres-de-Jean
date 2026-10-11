@@ -289,6 +289,62 @@ export default {
       }
     }
 
+    // Admin: fulfill an order by copying digital PDFs into R2 and updating order payload
+    if (pathname === '/api/account/orders/fulfill' && request.method === 'POST') {
+      const body = await readJson(request);
+      const orderId = String(body?.orderId || '');
+      if (!orderId) return json({ error: 'Missing orderId' }, { status: 400 });
+
+      // Admin authentication: require X-Admin-Secret header matching env.ADMIN_SECRET
+      const adminSecretHeader = request.headers.get('x-admin-secret') || '';
+      if (!env.ADMIN_SECRET || !adminSecretHeader || adminSecretHeader !== env.ADMIN_SECRET) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      try {
+        const orderRow = await env.DB.prepare('SELECT customer_id, payload_json FROM orders WHERE id = ?').bind(orderId).first<{ customer_id: string; payload_json: string }>();
+        if (!orderRow?.payload_json) return json({ error: 'Order not found' }, { status: 404 });
+
+        const order = JSON.parse(orderRow.payload_json) as { items?: Array<{ bookId: string; digitalPdfUrl?: string; format?: string }>; paymentStatus?: string; orderStatus?: string };
+
+        // For each digital item, fetch the source PDF and put into R2 under customer-pdfs/{orderId}/{bookId}.pdf
+        for (const item of (order.items || [])) {
+          if (!(item.format === 'numerique_pdf' || item.format === 'pack_duo')) continue;
+          const srcUrl = item.digitalPdfUrl;
+          if (!srcUrl) continue;
+
+          try {
+            const res = await fetch(srcUrl);
+            if (!res.ok) {
+              console.warn('Failed to fetch source PDF', srcUrl, res.status);
+              continue;
+            }
+            const arrayBuffer = await res.arrayBuffer();
+            const key = makePrivatePdfKey(orderId, item.bookId);
+            // store in R2
+            await env.PDFS.put(key, arrayBuffer, { httpMetadata: { contentType: 'application/pdf' } });
+            // update item's digitalPdfUrl to point to the worker download endpoint
+            item.digitalPdfUrl = `${env.SITE_URL.replace(/\/$/, '')}/api/download/${orderId}/${item.bookId}`;
+          } catch (err) {
+            console.error('Error copying PDF for', item.bookId, err);
+          }
+        }
+
+        // mark order as paid/fulfilled by admin action
+        order.paymentStatus = 'paye';
+        // optional: set orderStatus to a fulfilled state
+        order.orderStatus = order.orderStatus || 'completed';
+
+        // persist updated order payload
+        await env.DB.prepare('UPDATE orders SET payload_json = ? WHERE id = ?').bind(JSON.stringify(order), orderId).run();
+
+        return json({ ok: true, orderId });
+      } catch (err) {
+        console.error('Failed to fulfill order', err);
+        return json({ error: 'Failed to fulfill order' }, { status: 500 });
+      }
+    }
+
     if (pathname === '/api/account/digital' && request.method === 'GET') {
       const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
       const session = token ? await verifyCustomerToken(env, token) : null;
