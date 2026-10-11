@@ -356,7 +356,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   {/* Account Creation Password */}
-                  <div className="p-3 bg-stone-100 rounded border border-stone-200">
+                  <form className="p-3 bg-stone-100 rounded border border-stone-200" onSubmit={(e) => e.preventDefault()}>
                     <label className="block text-xs font-semibold text-stone-700 mb-1">
                       Mot de passe du compte client (crypté et sécurisé)
                     </label>
@@ -369,7 +369,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <p className="text-[11px] text-stone-500 mt-1">
                       Ce mot de passe protège votre espace personnel et l'accès à vos factures.
                     </p>
-                  </div>
+                  </form>
 
                   <div className="pt-4 flex justify-end">
                     <button

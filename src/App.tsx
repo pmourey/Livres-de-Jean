@@ -302,7 +302,8 @@ export default function App() {
     setCart([]);
     // Show order confirmation modal
     setConfirmedOrder(newOrder);
-    void fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
+    if (import.meta.env.PROD) {
+      fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -312,7 +313,10 @@ export default function App() {
         phone: currentUser.phone,
         order: newOrder
       })
-    });
+      }).catch((error) => {
+        console.error('Failed to persist order to backend', error);
+      });
+    }
   };
 
   const handleCustomerLogin = async (payload: { email: string; firstName: string; lastName: string; phone: string }) => {
@@ -576,6 +580,7 @@ export default function App() {
             currentUser={currentUser}
             books={books}
             customerToken={customerToken}
+            onLogin={handleCustomerLogin}
             onOpenClaim={handleOpenClaim}
             onSendClaimMessage={handleSendClaimMessage}
             onViewBook={(bookId) => {

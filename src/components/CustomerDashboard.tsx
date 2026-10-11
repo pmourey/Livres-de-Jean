@@ -15,6 +15,7 @@ interface CustomerDashboardProps {
   currentUser: UserAccount;
   books: Book[];
   customerToken?: string;
+  onLogin?: (payload: { email: string; firstName: string; lastName: string; phone: string }) => Promise<void> | void;
   onOpenClaim: (orderId: string, reason: ClaimTicket['reason'], subject: string, message: string) => void;
   onSendClaimMessage: (claimId: string, text: string) => void;
   onViewBook: (bookId: string) => void;
@@ -27,6 +28,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   currentUser,
   books,
   customerToken,
+  onLogin,
   onOpenClaim,
   onSendClaimMessage,
   onViewBook,
@@ -41,6 +43,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [claimReason, setClaimReason] = useState<ClaimTicket['reason']>('colis_non_recu');
   const [claimSubject, setClaimSubject] = useState('');
   const [claimMessage, setClaimMessage] = useState('');
+  const [profileEmail, setProfileEmail] = useState(currentUser.email);
+  const [profileFirstName, setProfileFirstName] = useState(currentUser.firstName);
+  const [profileLastName, setProfileLastName] = useState(currentUser.lastName);
+  const [profilePhone, setProfilePhone] = useState(currentUser.phone);
+  const [profileStatus, setProfileStatus] = useState('');
 
   // Active chat in claims tab
   const [activeClaimId, setActiveClaimId] = useState<string | null>(claims[0]?.id || null);
@@ -709,7 +716,37 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           <h4 className="font-serif-display font-bold text-base text-[#2B1810] border-b border-stone-200 pb-2">
             Vos Informations Personnelles & Adresses de Livraison
           </h4>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input className="border border-stone-300 rounded px-3 py-2" value={profileFirstName} onChange={(e) => setProfileFirstName(e.target.value)} placeholder="Prénom" />
+            <input className="border border-stone-300 rounded px-3 py-2" value={profileLastName} onChange={(e) => setProfileLastName(e.target.value)} placeholder="Nom" />
+            <input className="border border-stone-300 rounded px-3 py-2 sm:col-span-2" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} placeholder="E-mail" />
+            <input className="border border-stone-300 rounded px-3 py-2 sm:col-span-2" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} placeholder="Téléphone" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!onLogin) return;
+                setProfileStatus('Connexion...');
+                try {
+                  await onLogin({ email: profileEmail, firstName: profileFirstName, lastName: profileLastName, phone: profilePhone });
+                  setProfileStatus('Connecté. Vos téléchargements sont disponibles.');
+                } catch {
+                  setProfileStatus('Connexion impossible.');
+                }
+              }}
+              className="px-4 py-2 bg-[#8B1E2D] text-white rounded font-semibold"
+            >
+              Se connecter
+            </button>
+            <span className="text-[11px] text-stone-500">{customerToken ? 'Session active' : 'Session non connectée'}</span>
+          </div>
+
+          {profileStatus && <p className="text-[11px] text-stone-600">{profileStatus}</p>}
+
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-stone-200">
             <div>
               <span className="text-stone-500 block">Nom complet :</span>
               <strong className="text-stone-900 text-sm">{currentUser.firstName} {currentUser.lastName}</strong>
