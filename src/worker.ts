@@ -186,8 +186,9 @@ const paypalCaptureOrder = async (env: Env, orderId: string) => {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+/g, '/');
 
-    if (url.pathname === '/health') {
+    if (pathname === '/health') {
       return json({ ok: true });
     }
 
@@ -195,7 +196,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    if (url.pathname === '/') {
+    if (pathname === '/') {
       return json({
         ok: true,
         routes: {
@@ -206,15 +207,15 @@ export default {
       });
     }
 
-    if (url.pathname === '/payment/success') {
+    if (pathname === '/payment/success') {
       return Response.redirect(env.STRIPE_RETURN_URL, 302);
     }
 
-    if (url.pathname === '/payment/cancel') {
+    if (pathname === '/payment/cancel') {
       return Response.redirect(env.STRIPE_CANCEL_URL, 302);
     }
 
-    if (url.pathname === '/api/account/login' && request.method === 'POST') {
+    if (pathname === '/api/account/login' && request.method === 'POST') {
       const body = await readJson(request);
       const email = String(body?.email || '').trim().toLowerCase();
       if (!email) {
@@ -245,7 +246,7 @@ export default {
       });
     }
 
-    if (url.pathname === '/api/account/orders' && request.method === 'GET') {
+    if (pathname === '/api/account/orders' && request.method === 'GET') {
       const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
       const session = token ? await verifyCustomerToken(env, token) : null;
       const email = (url.searchParams.get('email') || session?.email || '').toLowerCase();
@@ -256,7 +257,7 @@ export default {
       return json({ orders: (rows.results || []).map((r) => JSON.parse(r.payload_json)) });
     }
 
-    if (url.pathname === '/api/account/orders' && request.method === 'POST') {
+    if (pathname === '/api/account/orders' && request.method === 'POST') {
       const body = await readJson(request);
       const email = String(body?.email || '').trim().toLowerCase();
       const order = body?.order;
@@ -279,7 +280,7 @@ export default {
       return json({ ok: true });
     }
 
-    if (url.pathname === '/api/account/digital' && request.method === 'GET') {
+    if (pathname === '/api/account/digital' && request.method === 'GET') {
       const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
       const session = token ? await verifyCustomerToken(env, token) : null;
       if (!session?.email) {
@@ -305,14 +306,14 @@ export default {
       return json({ downloads });
     }
 
-    if (url.pathname.startsWith('/api/download/') && request.method === 'GET') {
+    if (pathname.startsWith('/api/download/') && request.method === 'GET') {
       const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
       const session = token ? await verifyCustomerToken(env, token) : null;
       if (!session?.email) {
         return json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      const [, , orderId, bookId] = url.pathname.split('/');
+      const [, , orderId, bookId] = pathname.split('/');
       if (!orderId || !bookId) {
         return json({ error: 'Missing order or book' }, { status: 400 });
       }
@@ -351,7 +352,7 @@ export default {
     }
 
     if (
-      (url.pathname === '/api/payments/stripe' || url.pathname === '/checkout/stripe') &&
+      (pathname === '/api/payments/stripe' || pathname === '/checkout/stripe') &&
       request.method === 'POST'
     ) {
       const total = await readTotal(request);
@@ -378,7 +379,7 @@ export default {
     }
 
     if (
-      (url.pathname === '/api/payments/paypal' || url.pathname === '/checkout/paypal') &&
+      (pathname === '/api/payments/paypal' || pathname === '/checkout/paypal') &&
       request.method === 'POST'
     ) {
       const total = await readTotal(request);
@@ -404,7 +405,7 @@ export default {
       }
     }
 
-    if ((url.pathname === '/api/payments/paypal/complete' || url.pathname === '/checkout/paypal/complete') && request.method === 'GET') {
+    if ((pathname === '/api/payments/paypal/complete' || pathname === '/checkout/paypal/complete') && request.method === 'GET') {
       const orderId = url.searchParams.get('token');
       if (!orderId) {
         return json({ error: 'Missing PayPal token' }, { status: 400 });
