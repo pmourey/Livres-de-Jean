@@ -309,7 +309,9 @@ export default {
     if (pathname.startsWith('/api/download/') && request.method === 'GET') {
       const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token') || '';
       const session = token ? await verifyCustomerToken(env, token) : null;
-      if (!session?.email) {
+      const fallbackEmail = url.searchParams.get('email')?.toLowerCase() || '';
+      const email = session?.email || fallbackEmail;
+      if (!email) {
         return json({ error: 'Unauthorized' }, { status: 401 });
       }
 
@@ -318,7 +320,7 @@ export default {
         return json({ error: 'Missing order or book' }, { status: 400 });
       }
 
-      const customer = await env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(session.email).first<{ id: string }>();
+      const customer = await env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(email).first<{ id: string }>();
       if (!customer?.id) return json({ error: 'Customer not found' }, { status: 404 });
 
       const orderRow = await env.DB.prepare('SELECT payload_json FROM orders WHERE id = ? AND customer_id = ?').bind(orderId, customer.id).first<{ payload_json: string }>();

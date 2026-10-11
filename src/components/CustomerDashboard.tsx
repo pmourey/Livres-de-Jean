@@ -358,7 +358,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                   {isPaid ? (
                                     <>
                                       <a
-                                        href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : ''}`}
+                                        href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-[11px] font-semibold transition-colors shadow-2xs"
                                       >
                                         <Download className="w-3.5 h-3.5" />
@@ -569,7 +569,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </button>
 
                           <a
-                            href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : ''}`}
+                            href={`${import.meta.env.VITE_PAYMENTS_API_BASE || 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'}/api/download/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
                             className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-xs font-semibold shadow-xs transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
