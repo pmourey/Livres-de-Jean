@@ -18,7 +18,7 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     dimensions: '15 × 21 cm, broché avec cartes et relevés topographiques',
     weightGrams: 420,
     price: 22.0,
-    priceEbook: 9.9,
+    priceEbook: 0,
     priceCombo: 26.0,
     category: 'Gergovie & Gaule',
     shortDescription:
