@@ -264,20 +264,29 @@ export default {
       if (!email || !order?.id) {
         return json({ error: 'Missing email or order' }, { status: 400 });
       }
-      const customerId = customerIdFromEmail(email);
-      await env.DB.prepare(
-        'INSERT INTO customers (id, email, first_name, last_name, phone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING'
-      ).bind(
-        customerId,
-        email,
-        String(body?.firstName || 'Client'),
-        String(body?.lastName || ''),
-        String(body?.phone || '')
-      ).run();
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO orders (id, customer_id, payload_json) VALUES (?, ?, ?)'
-      ).bind(order.id, customerId, JSON.stringify(order)).run();
-      return json({ ok: true });
+      try {
+        if (!env.DB) {
+          return json({ ok: true, persisted: false });
+        }
+
+        const customerId = customerIdFromEmail(email);
+        await env.DB.prepare(
+          'INSERT INTO customers (id, email, first_name, last_name, phone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING'
+        ).bind(
+          customerId,
+          email,
+          String(body?.firstName || 'Client'),
+          String(body?.lastName || ''),
+          String(body?.phone || '')
+        ).run();
+        await env.DB.prepare(
+          'INSERT OR REPLACE INTO orders (id, customer_id, payload_json) VALUES (?, ?, ?)'
+        ).bind(order.id, customerId, JSON.stringify(order)).run();
+        return json({ ok: true, persisted: true });
+      } catch (error) {
+        console.error('Failed to persist order', error);
+        return json({ ok: true, persisted: false });
+      }
     }
 
     if (pathname === '/api/account/digital' && request.method === 'GET') {
@@ -324,9 +333,17 @@ export default {
       if (!customer?.id) return json({ error: 'Customer not found' }, { status: 404 });
 
       const orderRow = await env.DB.prepare('SELECT payload_json FROM orders WHERE id = ? AND customer_id = ?').bind(orderId, customer.id).first<{ payload_json: string }>();
-      if (!orderRow?.payload_json) return json({ error: 'Order not found' }, { status: 404 });
+      let orderJson = orderRow?.payload_json || '';
+      if (!orderJson) {
+        const fallbackRows = await env.DB.prepare('SELECT payload_json FROM orders WHERE customer_id = ? ORDER BY created_at DESC').bind(customer.id).all<{ payload_json: string }>();
+        const fallbackOrder = (fallbackRows.results || []).map((row) => JSON.parse(row.payload_json) as { items?: Array<{ bookId: string; format: string }>; paymentStatus?: string }).find((order) =>
+          order.items?.some((entry) => entry.bookId === bookId && (entry.format === 'numerique_pdf' || entry.format === 'pack_duo'))
+        );
+        if (!fallbackOrder) return json({ error: 'Order not found' }, { status: 404 });
+        orderJson = JSON.stringify(fallbackOrder);
+      }
 
-      const order = JSON.parse(orderRow.payload_json) as { paymentStatus?: string; items?: Array<{ bookId: string; format: string; digitalPdfUrl?: string }> };
+      const order = JSON.parse(orderJson) as { paymentStatus?: string; items?: Array<{ bookId: string; format: string; digitalPdfUrl?: string }> };
       if (order.paymentStatus !== 'paye') {
         return json({ error: 'Payment not validated' }, { status: 403 });
       }
