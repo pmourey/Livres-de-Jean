@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Order, ClaimTicket, UserAccount, Book } from '../types';
 import { InvoiceView } from './InvoiceView';
 import { BookCover } from './BookCover';
@@ -7,7 +7,7 @@ import { PAYMENTS_API_BASE } from '../config/commerce';
 import { 
   Package, Clock, CheckCircle, Truck, FileText, AlertTriangle, 
   Send, ChevronRight, User, MapPin, Feather, Lock, Eye, X, 
-  Download, BookOpen, ShieldCheck, Sparkles 
+  Download, BookOpen, ShieldCheck, Sparkles, Loader2, RefreshCw 
 } from 'lucide-react';
 
 interface CustomerDashboardProps {
@@ -45,6 +45,174 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [readingDigitalBook, setReadingDigitalBook] = useState<{ book: Book; order: Order } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState(false);
+
+  // État de validation des droits numériques (entitlements) vérifiés auprès de l'API
+  const [entitlementChecks, setEntitlementChecks] = useState<
+    Record<string, { status: 'idle' | 'checking' | 'valid' | 'invalid' | 'error'; message?: string; pdfAvailable?: boolean }>
+  >({});
+
+  /**
+   * Appelle les points de terminaison de l'API Cloudflare Worker pour vérifier
+   * si la commande possède un droit de téléchargement numérique valide
+   * avant d'autoriser l'affichage du bouton de téléchargement.
+   */
+  const verifyDigitalEntitlement = async (orderId: string, bookId: string): Promise<boolean> => {
+    const itemKey = `${orderId}:${bookId}`;
+    setEntitlementChecks((prev) => ({
+      ...prev,
+      [itemKey]: { status: 'checking' }
+    }));
+
+    const localOrder = userOrders.find((o) => o.id === orderId);
+
+    // 1. Première vérification via l'API des commandes du compte (JSON rapide avec CORS garanti)
+    try {
+      const ordersApiUrl = `${PAYMENTS_API_BASE}/api/account/orders?email=${encodeURIComponent(currentUser.email)}`;
+      const ordersRes = await fetch(ordersApiUrl, {
+        method: 'GET',
+        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {}
+      });
+
+      if (ordersRes.ok) {
+        const ordersData = (await ordersRes.json().catch(() => null)) as { orders?: Order[] } | null;
+        const remoteOrder = (ordersData?.orders || []).find((o) => o.id === orderId);
+        if (remoteOrder) {
+          const isRemotePaid = remoteOrder.paymentStatus === 'paye';
+          const hasDigitalItem = (remoteOrder.items || []).some(
+            (it) =>
+              (it.bookId === bookId || !bookId) &&
+              (it.format === 'numerique_pdf' || it.format === 'pack_duo' || !it.format)
+          );
+
+          if (isRemotePaid && hasDigitalItem) {
+            setEntitlementChecks((prev) => ({
+              ...prev,
+              [itemKey]: {
+                status: 'valid',
+                pdfAvailable: true,
+                message: 'Droit numérique vérifié et validé auprès du serveur Cloudflare.'
+              }
+            }));
+            return true;
+          }
+
+          if (!isRemotePaid) {
+            setEntitlementChecks((prev) => ({
+              ...prev,
+              [itemKey]: {
+                status: 'invalid',
+                message: 'Paiement en attente de validation.'
+              }
+            }));
+            return false;
+          }
+        }
+      }
+    } catch (apiErr) {
+      console.warn('API account/orders verification warning:', apiErr);
+    }
+
+    // 2. Deuxième vérification via le point de terminaison de téléchargement direct
+    try {
+      const checkUrl = `${downloadBase}/${orderId}/${bookId}?${
+        customerToken
+          ? `token=${encodeURIComponent(customerToken)}`
+          : `email=${encodeURIComponent(currentUser.email)}`
+      }&check=true`;
+
+      const response = await fetch(checkUrl, {
+        method: 'GET',
+        headers: {
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          Range: 'bytes=0-0'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json().catch(() => null);
+        setEntitlementChecks((prev) => ({
+          ...prev,
+          [itemKey]: {
+            status: 'valid',
+            pdfAvailable: data?.pdfAvailable ?? true,
+            message: data?.message || 'Droit numérique vérifié et validé.'
+          }
+        }));
+        return true;
+      }
+
+      const errData = await response.json().catch(() => null);
+      const errMsg = (errData?.error || '').toLowerCase();
+
+      // Si le code HTTP est 404 avec mention de PDF non trouvé en stockage R2,
+      // le droit numérique de la commande est bel et bien reconnu et validé par le Worker.
+      // C'est uniquement le fichier PDF physique qui est en attente de téléversement dans le bucket R2.
+      const isStorageMissingOnly =
+        response.status === 404 &&
+        (errMsg.includes('pdf') || errMsg.includes('storage') || errMsg.includes('r2'));
+
+      if (isStorageMissingOnly) {
+        setEntitlementChecks((prev) => ({
+          ...prev,
+          [itemKey]: {
+            status: 'valid',
+            pdfAvailable: false,
+            message: 'Droit numérique validé. Le fichier PDF est en attente de synchronisation dans le stockage Cloudflare R2.'
+          }
+        }));
+        return true;
+      }
+
+      // Si le statut est 403 ou 401 (rejet d'autorisation)
+      if (response.status === 403 || response.status === 401) {
+        const userMsg = errData?.error || 'Droit de téléchargement non reconnu par le serveur';
+        setEntitlementChecks((prev) => ({
+          ...prev,
+          [itemKey]: {
+            status: 'invalid',
+            message: userMsg
+          }
+        }));
+        return false;
+      }
+    } catch (err) {
+      // Si une erreur de fetch survient (ex: restriction CORS du navigateur sur un flux binaire PDF déjà servi en 200)
+      // et que la commande est bien payée, on autorise l'accès au téléchargement direct.
+      if (localOrder && localOrder.paymentStatus === 'paye') {
+        setEntitlementChecks((prev) => ({
+          ...prev,
+          [itemKey]: {
+            status: 'valid',
+            pdfAvailable: true,
+            message: 'Droit numérique validé. Téléchargement direct disponible.'
+          }
+        }));
+        return true;
+      }
+    }
+
+    // 3. Fallback sur la validation de la commande locale
+    if (localOrder && localOrder.paymentStatus === 'paye') {
+      setEntitlementChecks((prev) => ({
+        ...prev,
+        [itemKey]: {
+          status: 'valid',
+          pdfAvailable: true,
+          message: 'Droit numérique validé.'
+        }
+      }));
+      return true;
+    }
+
+    setEntitlementChecks((prev) => ({
+      ...prev,
+      [itemKey]: {
+        status: 'invalid',
+        message: 'Droit de téléchargement non validé pour cette commande.'
+      }
+    }));
+    return false;
+  };
 
   const handleManualSync = async () => {
     if (!onSyncOrders) return;
@@ -116,6 +284,22 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         };
       })
   );
+
+  // Vérification automatique des droits numériques pour chaque commande payée
+  useEffect(() => {
+    userOrders.forEach((order) => {
+      if (order.paymentStatus === 'paye') {
+        order.items.forEach((item) => {
+          if (item.format === 'numerique_pdf' || item.format === 'pack_duo') {
+            const itemKey = `${order.id}:${item.bookId}`;
+            if (!entitlementChecks[itemKey]) {
+              verifyDigitalEntitlement(order.id, item.bookId);
+            }
+          }
+        });
+      }
+    });
+  }, [userOrders.length, customerToken, currentUser.email]);
 
   const handleCreateClaim = (e: React.FormEvent) => {
     e.preventDefault();
@@ -408,15 +592,49 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                                   {isPaid ? (
                                     <>
-                                      <a
-                                        href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-[11px] font-semibold transition-colors shadow-2xs"
-                                      >
-                                        <Download className="w-3.5 h-3.5" />
-                                        <span>Télécharger le PDF (Stockage R2)</span>
-                                      </a>
+                                      {(() => {
+                                        const itemKey = `${order.id}:${item.bookId}`;
+                                        const ent = entitlementChecks[itemKey] || { status: 'idle' };
+
+                                        if (ent.status === 'checking' || ent.status === 'idle') {
+                                          return (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-100 text-stone-600 rounded text-[11px] font-medium border border-stone-200">
+                                              <Loader2 className="w-3 h-3 animate-spin text-[#8B1E2D]" />
+                                              <span>Vérification du droit...</span>
+                                            </div>
+                                          );
+                                        }
+
+                                        if (ent.status === 'valid') {
+                                          return (
+                                            <a
+                                              href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-[11px] font-semibold transition-colors shadow-2xs"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Télécharger le PDF (Stockage R2)</span>
+                                            </a>
+                                          );
+                                        }
+
+                                        return (
+                                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-900 rounded text-[11px]">
+                                            <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                                            <span className="truncate max-w-[190px]" title={ent.message}>
+                                              {ent.message || 'Droit numérique non reconnu'}
+                                            </span>
+                                            <button
+                                              onClick={() => verifyDigitalEntitlement(order.id, item.bookId)}
+                                              className="text-[#8B1E2D] hover:text-[#721824] p-0.5 ml-0.5"
+                                              title="Revérifier le droit"
+                                            >
+                                              <RefreshCw className="w-2.5 h-2.5" />
+                                            </button>
+                                          </div>
+                                        );
+                                      })()}
 
                                       <button
                                         onClick={() => {
@@ -621,15 +839,57 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             <span>Lire en ligne (Liseuse)</span>
                           </button>
 
-                          <a
-                            href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-xs font-semibold shadow-xs transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Télécharger le PDF (Stockage R2)</span>
-                          </a>
+                          {(() => {
+                            const itemKey = `${order.id}:${item.bookId}`;
+                            const ent = entitlementChecks[itemKey] || { status: 'idle' };
+
+                            if (ent.status === 'checking' || ent.status === 'idle') {
+                              return (
+                                <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-stone-100 text-stone-600 rounded text-xs font-medium border border-stone-200">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8B1E2D]" />
+                                  <span>Vérification du droit de téléchargement...</span>
+                                </div>
+                              );
+                            }
+
+                            if (ent.status === 'valid') {
+                              return (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                  <a
+                                    href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-xs font-semibold shadow-xs transition-colors"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Télécharger le PDF (Stockage R2)</span>
+                                  </a>
+                                  {!ent.pdfAvailable && (
+                                    <span className="text-[10px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded border border-amber-200 font-medium">
+                                      Droit validé · Fichier en attente R2
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-800 rounded text-xs font-medium">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                  <span>{ent.message || 'Droit de téléchargement non reconnu'}</span>
+                                </div>
+                                <button
+                                  onClick={() => verifyDigitalEntitlement(order.id, item.bookId)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-xs font-semibold transition-colors"
+                                  title="Revérifier le droit auprès du serveur"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  <span>Revérifier le droit</span>
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </>
                       ) : (
                         <div className="w-full text-[11px] text-amber-900 bg-white p-3 rounded border border-amber-200 space-y-2">

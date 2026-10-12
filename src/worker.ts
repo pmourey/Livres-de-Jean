@@ -578,7 +578,7 @@ export default {
       return json({ downloads });
     }
 
-    if ((pathname.startsWith('/api/download') || pathname.startsWith('/download')) && request.method === 'GET') {
+    if ((pathname.startsWith('/api/download') || pathname.startsWith('/download')) && (request.method === 'GET' || request.method === 'HEAD')) {
       const segments = pathname.split('/').filter(Boolean);
       const cleanSegments = segments.filter((s) => s.toLowerCase() !== 'api' && s.toLowerCase() !== 'download');
       const orderId = url.searchParams.get('orderId') || cleanSegments[0] || '';
@@ -730,6 +730,18 @@ export default {
         }
       }
 
+      const isCheckOnly = url.searchParams.get('check') === 'true' || url.searchParams.get('verify') === 'true' || request.method === 'HEAD';
+      if (isCheckOnly) {
+        return json({
+          ok: true,
+          entitled: true,
+          orderId,
+          bookId,
+          pdfAvailable: Boolean(object),
+          message: object ? 'Droit valide et fichier PDF disponible' : 'Droit valide, synchronisation R2 en cours'
+        });
+      }
+
       if (!object) {
         return json(
           {
@@ -752,6 +764,9 @@ export default {
       headers.set('content-type', 'application/pdf');
       headers.set('content-disposition', `attachment; filename="${bookId}.pdf"`);
       headers.set('cache-control', 'private, no-transform, max-age=3600');
+      headers.set('access-control-allow-origin', '*');
+      headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS');
+      headers.set('access-control-allow-headers', 'Content-Type, Range, Authorization');
       return new Response(object.body, { headers });
     }
 
