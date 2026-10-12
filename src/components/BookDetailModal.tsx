@@ -48,7 +48,11 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   };
 
   const currentUnitPrice = getUnitPrice(selectedFormat);
-  const kindleUrl = book.amazonKindleUrl || amazonKindleSearchUrl(book.title, book.author);
+  const kindleUrl =
+    book.kindleUrl ||
+    (book.kindleAsin
+      ? `https://www.amazon.fr/dp/${book.kindleAsin}/`
+      : book.amazonKindleUrl || amazonKindleSearchUrl(book.title, book.author));
 
   const handleAdd = () => {
     if (book.isUnpublished) return;
@@ -137,26 +141,36 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                 <span>Feuilleter l'extrait de lecture</span>
               </button>
 
-              {book.amazonUrl && (
+              {/* Amazon / Kindle Direct Access */}
+              <div className="w-full space-y-1.5 pt-2 border-t border-stone-200">
                 <a
-                  href={book.amazonUrl}
+                  href={kindleUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-stone-500 hover:text-[#8B1E2D] text-[11px] inline-flex items-center gap-1"
+                  className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-semibold rounded border border-amber-300 flex items-center justify-between transition-colors shadow-2xs"
                 >
-                  <span>Fiche sur Amazon / Decitre</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#8B1E2D]">Kindle</span>
+                    <span>Format Liseuse Amazon</span>
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-amber-800">
+                    {book.kindleAsin ? `ASIN ${book.kindleAsin}` : 'Amazon'}
+                    <ExternalLink className="w-3 h-3 ml-0.5" />
+                  </span>
                 </a>
-              )}
-              <a
-                href={kindleUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-stone-500 hover:text-[#8B1E2D] text-[11px] inline-flex items-center gap-1"
-              >
-                <span>Acheter / rechercher l'édition Kindle sur Amazon</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+
+                {book.amazonUrl && (
+                  <a
+                    href={book.amazonUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full text-center py-1 text-stone-600 hover:text-[#8B1E2D] text-[11px] inline-flex items-center justify-center gap-1"
+                  >
+                    <span>Fiche Broché Amazon / Decitre</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Right Column: Title, Synopsis, Format Choice or Unpublished Notice */}
@@ -187,11 +201,11 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                     <AlertTriangle className="w-5 h-5 text-amber-800 shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <h4 className="font-bold text-amber-950 text-sm">
-                        Ouvrage Inédit — Consultation et Recherche Documentaire Uniquement
+                        Manuscrit d'Auteur Inédit — Consultation et Recherche Documentaire
                       </h4>
                       <p className="text-xs text-amber-900 leading-relaxed">
                         {book.availabilityNotice ||
-                          "Cet ouvrage n'a pas fait l'objet d'un dépôt légal officiel (aucun numéro ISBN attribué). Il ne peut pas être mis à la vente sur la boutique en ligne. Il sera prochainement mis à disposition sous forme de document PDF téléchargeable (ou via un service en ligne d'impression à la demande en cours de définition)."}
+                          "Conformément aux règles de protection des droits d'auteur et pour préserver l'antériorité de l'œuvre d'Émile Mourey, aucun fichier PDF brut n'est vendu en téléchargement direct. L'ouvrage est réservé à la consultation d'extraits en ligne."}
                       </p>
                     </div>
                   </div>
@@ -199,11 +213,12 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   <div className="p-3 bg-white/90 rounded border border-amber-200 text-xs text-stone-700 space-y-1.5">
                     <div className="flex items-center gap-2 text-stone-900 font-semibold">
                       <Scroll className="w-4 h-4 text-amber-700" />
-                      <span>Modalités de diffusion prévues :</span>
+                      <span>Modalités d'accès :</span>
                     </div>
                     <p className="text-[11px] text-stone-600 leading-normal">
-                      • <strong>Consultation numérique PDF :</strong> En cours de préparation technique pour une mise en ligne prochaine.<br />
-                      • <strong>Impression à la demande :</strong> Service en ligne d'impression à l'exemplaire en cours d'évaluation.
+                      • <strong>Consultation d'extraits certifiés :</strong> Accès immédiat et gratuit dans le visualiseur en ligne.<br />
+                      • <strong>Format Kindle Amazon :</strong> Disponible sur Amazon (recherche ou ASIN direct ci-dessous).<br />
+                      • <strong>Impression reliée d'art :</strong> Service à la demande en cours de mise en place.
                     </p>
                   </div>
 
@@ -213,11 +228,18 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                       className="px-4 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs transition-colors"
                     >
                       <BookOpen className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Découvrir les extraits du texte</span>
+                      <span>Consulter les extraits du texte</span>
                     </button>
-                    <span className="text-[11px] text-amber-900 font-medium italic">
-                      Non commercialisé sur le panier en ligne
-                    </span>
+
+                    <a
+                      href={kindleUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-2 bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <span>Format Kindle Amazon</span>
+                      <ExternalLink className="w-3 h-3 text-amber-300" />
+                    </a>
                   </div>
                 </div>
               ) : (
@@ -300,19 +322,31 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   </div>
 
                   {selectedFormat === 'numerique_pdf' && (
-                    <p className="text-[11px] text-blue-800 bg-blue-50 p-2.5 rounded border border-blue-200 mt-1 leading-relaxed">
-                      ℹ️ <strong>Format 100 % Numérique :</strong> Aucun frais de livraison. Le bouton de téléchargement du PDF officiel s'activera directement dans votre <em>Espace Client</em> dès la validation de votre paiement.
+                    <p className="text-[11px] text-blue-900 bg-blue-50/80 p-2.5 rounded border border-blue-200 mt-1 leading-relaxed">
+                      ℹ️ <strong>Format Numérique Officiel (Cloudflare R2) :</strong> Fichier PDF servi depuis le stockage Cloudflare R2 avec en-têtes sécurisés. Téléchargement immédiat activé dans votre <em>Espace Client</em> après validation de la commande.
                     </p>
                   )}
 
-                  {/* Price display */}
-                  <div className="flex items-baseline gap-3 pt-1">
-                    <span className="text-3xl font-bold font-serif-display text-[#8B1E2D] tabular-nums">
-                      {Number(currentUnitPrice || 22.0).toFixed(2)} €
-                    </span>
-                    <span className="text-xs text-stone-500">
-                      Prix net (TVA non applicable, art. 293 B du CGI)
-                    </span>
+                  {/* Price display and Kindle alternative */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-stone-200">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold font-serif-display text-[#8B1E2D] tabular-nums">
+                        {Number(currentUnitPrice || 22.0).toFixed(2)} €
+                      </span>
+                      <span className="text-[10px] text-stone-500">
+                        (TVA non applicable, art. 293 B du CGI)
+                      </span>
+                    </div>
+
+                    <a
+                      href={kindleUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#8B1E2D] hover:text-[#721824] font-semibold underline decoration-stone-300 underline-offset-2"
+                    >
+                      <span>Acheter au format Kindle {book.kindleAsin ? `(${book.kindleAsin})` : ''}</span>
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                    </a>
                   </div>
                 </div>
               )}

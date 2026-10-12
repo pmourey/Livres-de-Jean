@@ -21,6 +21,8 @@ interface CustomerDashboardProps {
   onSendClaimMessage: (claimId: string, text: string) => void;
   onViewBook: (bookId: string) => void;
   onNavigateCatalog?: () => void;
+  onValidateChequePayment?: (orderId: string) => void;
+  onSyncOrders?: () => Promise<void> | void;
 }
 
 export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
@@ -33,12 +35,25 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   onOpenClaim,
   onSendClaimMessage,
   onViewBook,
-  onNavigateCatalog
+  onNavigateCatalog,
+  onValidateChequePayment,
+  onSyncOrders
 }) => {
   const downloadBase = `${PAYMENTS_API_BASE}/api/download`.replace(/\/{2,}/g, '/').replace('https:/', 'https://');
   const [activeTab, setActiveTab] = useState<'orders' | 'digital' | 'claims' | 'profile'>('orders');
   const [selectedOrderForInvoice, setSelectedOrderForInvoice] = useState<Order | null>(null);
   const [readingDigitalBook, setReadingDigitalBook] = useState<{ book: Book; order: Order } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccessMsg, setSyncSuccessMsg] = useState(false);
+
+  const handleManualSync = async () => {
+    if (!onSyncOrders) return;
+    setIsSyncing(true);
+    await onSyncOrders();
+    setIsSyncing(false);
+    setSyncSuccessMsg(true);
+    setTimeout(() => setSyncSuccessMsg(false), 4000);
+  };
 
   // Claim modal state
   const [claimModalOrderId, setClaimModalOrderId] = useState<string | null>(null);
@@ -180,46 +195,68 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           <p className="text-xs text-stone-600 mt-0.5">
             {currentUser.email} · {currentUser.shippingAddress.city} ({currentUser.shippingAddress.postalCode})
           </p>
+
+          {/* Sync status toast */}
+          {syncSuccessMsg && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Vos commandes sont parfaitement synchronisées avec Cloudflare D1.</span>
+            </div>
+          )}
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex flex-wrap items-center gap-1 p-1 bg-white rounded-md border border-stone-200 text-xs">
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`px-3 py-1.5 rounded font-medium transition-colors ${
-              activeTab === 'orders' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            Mes Commandes ({userOrders.length})
-          </button>
+        {/* Tab Controls + Sync Button */}
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+          {onSyncOrders && (
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-900 text-white rounded text-xs font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              title="Synchroniser les commandes enregistrées dans le navigateur avec Cloudflare D1"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>{isSyncing ? 'Synchronisation D1...' : 'Synchroniser D1'}</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('digital')}
-            className={`px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5 ${
-              activeTab === 'digital' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Mes eBooks PDF ({digitalPurchases.length})</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-white rounded-md border border-stone-200 text-xs">
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`px-3 py-1.5 rounded font-medium transition-colors ${
+                activeTab === 'orders' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Mes Commandes ({userOrders.length})
+            </button>
 
-          <button
-            onClick={() => setActiveTab('claims')}
-            className={`px-3 py-1.5 rounded font-medium transition-colors ${
-              activeTab === 'claims' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            Réclamations SAV ({userClaims.length})
-          </button>
+            <button
+              onClick={() => setActiveTab('digital')}
+              className={`px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'digital' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Mes eBooks PDF ({digitalPurchases.length})</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`px-3 py-1.5 rounded font-medium transition-colors ${
-              activeTab === 'profile' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            Mon Profil
-          </button>
+            <button
+              onClick={() => setActiveTab('claims')}
+              className={`px-3 py-1.5 rounded font-medium transition-colors ${
+                activeTab === 'claims' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Réclamations SAV ({userClaims.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-3 py-1.5 rounded font-medium transition-colors ${
+                activeTab === 'profile' ? 'bg-[#8B1E2D] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Mon Profil
+            </button>
+          </div>
         </div>
       </div>
 
@@ -318,6 +355,18 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Réclamation SAV</span>
                       </button>
+
+                      {/* Simulation validation if pending cheque/virement */}
+                      {!isPaid && onValidateChequePayment && (
+                        <button
+                          onClick={() => onValidateChequePayment(order.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-300 transition-colors font-semibold"
+                          title="Valider la réception du règlement et débloquer les accès immédiatement"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Valider le règlement</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -361,10 +410,12 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                     <>
                                       <a
                                         href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
+                                        target="_blank"
+                                        rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-[11px] font-semibold transition-colors shadow-2xs"
                                       >
                                         <Download className="w-3.5 h-3.5" />
-                                        <span>Accéder au téléchargement sécurisé</span>
+                                        <span>Télécharger le PDF (Stockage R2)</span>
                                       </a>
 
                                       <button
@@ -572,21 +623,34 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
                           <a
                             href={`${downloadBase}/${order.id}/${item.bookId}${customerToken ? `?token=${encodeURIComponent(customerToken)}` : `?email=${encodeURIComponent(currentUser.email)}`}`}
+                            target="_blank"
+                            rel="noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white rounded text-xs font-semibold shadow-xs transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
-                            <span>Télécharger dans l'espace client</span>
+                            <span>Télécharger le PDF (Stockage R2)</span>
                           </a>
                         </>
                       ) : (
-                        <div className="w-full text-[11px] text-amber-900 bg-white p-2.5 rounded border border-amber-200 space-y-1">
-                          <p className="font-semibold flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" />
-                            En attente de réception du règlement
-                          </p>
-                          <p className="text-[10px] text-stone-600">
-                            Dès réception et validation de votre chèque ou virement par Monsieur Émile Mourey, les boutons de lecture et de téléchargement seront instantanément débloqués.
-                          </p>
+                        <div className="w-full text-[11px] text-amber-900 bg-white p-3 rounded border border-amber-200 space-y-2">
+                          <div>
+                            <p className="font-semibold flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              En attente de réception du règlement (Chèque / Virement)
+                            </p>
+                            <p className="text-[10px] text-stone-600 mt-0.5">
+                              Dès réception et validation de votre règlement, la lecture en ligne et le téléchargement direct Cloudflare R2 sont activés.
+                            </p>
+                          </div>
+                          {onValidateChequePayment && (
+                            <button
+                              onClick={() => onValidateChequePayment(order.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-semibold shadow-xs transition-colors"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Valider la réception du règlement (Débloquer l'accès R2)</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

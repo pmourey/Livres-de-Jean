@@ -267,20 +267,37 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                   {/* ISBN and External Reference links */}
                   <div className="w-full mt-3 pt-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-400">
                     <span className="font-mono">
-                      {book.isUnpublished ? 'Sans ISBN (Pas de dépôt légal)' : `ISBN : ${book.isbn10 || book.isbn}`}
+                      {book.isUnpublished ? 'Manuscrit (sans ISBN)' : `ISBN : ${book.isbn10 || book.isbn}`}
                     </span>
-                    {book.amazonUrl && (
+                    <div className="flex items-center gap-2">
                       <a
-                        href={book.amazonUrl}
+                        href={
+                          book.kindleUrl ||
+                          (book.kindleAsin
+                            ? `https://www.amazon.fr/dp/${book.kindleAsin}/`
+                            : `https://www.amazon.fr/s?k=${encodeURIComponent(`${book.title} Émile Mourey Kindle`)}`)
+                        }
                         target="_blank"
                         rel="noreferrer"
-                        className="text-stone-500 hover:text-[#8B1E2D] inline-flex items-center gap-0.5"
-                        title="Voir la référence sur Amazon / Decitre"
+                        className="text-amber-800 hover:text-[#8B1E2D] font-medium inline-flex items-center gap-0.5"
+                        title="Voir l'édition Kindle sur Amazon"
                       >
-                        <span>Réf. Amazon</span>
+                        <span className="font-bold">Kindle</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
-                    )}
+                      {book.amazonUrl && (
+                        <a
+                          href={book.amazonUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-stone-500 hover:text-[#8B1E2D] inline-flex items-center gap-0.5"
+                          title="Voir la référence sur Amazon / Decitre"
+                        >
+                          <span>Broché</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -289,12 +306,17 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                   {book.isUnpublished ? (
                     /* Unpublished / Manuscript Notice */
                     <div className="bg-amber-50/90 border border-amber-300/80 rounded p-2.5 space-y-1">
-                      <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
-                        <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                        <span>Disponible prochainement en PDF</span>
+                      <div className="flex items-center justify-between gap-1.5 text-amber-900 font-bold text-xs">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                          <span>Consultation d'extraits</span>
+                        </span>
+                        <span className="text-[10px] text-amber-800 bg-amber-200/60 px-1.5 py-0.5 rounded font-mono">
+                          Droits protégés
+                        </span>
                       </div>
                       <p className="text-[11px] text-amber-800 leading-snug">
-                        Sans dépôt légal (pas d'ISBN) · Non destiné à la vente.
+                        Sans dépôt légal (pas de vente PDF libre). Accès certifié aux extraits dans la liseuse.
                       </p>
                     </div>
                   ) : (

@@ -39,6 +39,11 @@ export interface Book {
   motif: 'shield' | 'fortress' | 'laurel' | 'map' | 'scroll' | 'cross' | 'moon';
   amazonUrl?: string;
   amazonKindleUrl?: string;
+  kindleAsin?: string; // Identifiant ASIN Amazon (ex: B0D... ou ISBN-10)
+  kindleUrl?: string; // Lien direct alternatif vers la fiche Kindle
+  r2Key?: string; // Clé de stockage dans le bucket R2
+  canBuyPdf?: boolean; // Vente PDF autorisée (true pour livres publiés, false pour manuscrits)
+  isManuscript?: boolean; // Statut manuscrit inédit (protection droits d'auteur)
   digitalPdfUrl: string; // Accessible uniquement après commande payée
   isUnpublished?: boolean; // Manuscrit inédit, hors commerce (sans ISBN / pas de dépôt légal)
   availabilityNotice?: string; // Information sur la diffusion future (PDF / impression à la demande)
@@ -96,6 +101,7 @@ export interface OrderItem {
   dedicationRequested: boolean;
   dedicationRecipient?: string;
   dedicationMessage?: string;
+  digitalPdfUrl?: string;
 }
 
 export interface CustomerAddress {

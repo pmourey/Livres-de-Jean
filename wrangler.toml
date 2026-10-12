@@ -11,6 +11,10 @@ database_id = "16181fe9-b0a5-4f20-979b-68c745f2c03d"
 binding = "PDFS"
 bucket_name = "ebooks-jean"
 
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "ebooks-jean"
+
 [vars]
 PAYPAL_API_BASE="https://api-m.paypal.com"
 SITE_URL = "https://pmourey.github.io/Livres-de-Jean"

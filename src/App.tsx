@@ -54,6 +54,11 @@ export default function App() {
               category: ib.category,
               isbn: ib.isbn,
               isbn10: ib.isbn10,
+              kindleAsin: pb.kindleAsin || ib.kindleAsin,
+              kindleUrl: pb.kindleUrl || ib.kindleUrl,
+              r2Key: pb.r2Key || ib.r2Key,
+              canBuyPdf: ib.canBuyPdf,
+              isManuscript: ib.isManuscript,
               inStock: typeof pb.inStock === 'number' ? pb.inStock : ib.inStock
             };
           });
@@ -115,7 +120,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.map((o: any) => ({
+          const loaded = parsed.map((o: any) => ({
             ...o,
             total: typeof o.total === 'number' ? o.total : 0,
             subtotal: typeof o.subtotal === 'number' ? o.subtotal : 0,
@@ -126,6 +131,8 @@ export default function App() {
               quantity: typeof i.quantity === 'number' ? i.quantity : 1
             }))
           }));
+          const missingInitial = INITIAL_ORDERS.filter((io) => !loaded.some((lo: any) => lo.id === io.id));
+          return [...missingInitial, ...loaded];
         }
       } catch (e) {
         // fallback
@@ -211,6 +218,19 @@ export default function App() {
       });
       setConfirmedOrder(finalizedOrder);
       setCart([]);
+
+      // Synchronize finalized order immediately with Cloudflare D1
+      fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: finalizedOrder.customer.email,
+          firstName: finalizedOrder.customer.firstName,
+          lastName: finalizedOrder.customer.lastName,
+          phone: finalizedOrder.customer.phone,
+          order: finalizedOrder
+        })
+      }).catch((err) => console.warn('Failed to sync payment return order to D1 worker:', err));
     } catch {
       // Ignore malformed pending orders and leave the success page untouched.
     } finally {
@@ -295,6 +315,27 @@ export default function App() {
     setCart((prev) => prev.filter((item) => !(item.book.id === bookId && item.format === format)));
   };
 
+  // Helper to synchronize any order to Cloudflare Worker D1 database
+  const syncOrderToD1 = async (order: Order): Promise<boolean> => {
+    try {
+      const response = await fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: order.customer?.email || currentUser.email,
+          firstName: order.customer?.firstName || currentUser.firstName,
+          lastName: order.customer?.lastName || currentUser.lastName,
+          phone: order.customer?.phone || currentUser.phone,
+          order
+        })
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('Failed to persist order to D1 backend:', error);
+      return false;
+    }
+  };
+
   // Order created callback
   const handleOrderCreated = (newOrder: Order) => {
     setOrders((prev) => [newOrder, ...prev]);
@@ -302,22 +343,19 @@ export default function App() {
     setCart([]);
     // Show order confirmation modal
     setConfirmedOrder(newOrder);
-    if (import.meta.env.PROD) {
-      fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: currentUser.email,
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName,
-        phone: currentUser.phone,
-        order: newOrder
-      })
-      }).catch((error) => {
-        console.error('Failed to persist order to backend', error);
+
+    // Sync order to Cloudflare Worker D1 database
+    void syncOrderToD1(newOrder);
+  };
+
+  // Initial sync of all orders from browser cache / initial state to Cloudflare D1
+  useEffect(() => {
+    if (orders.length > 0) {
+      orders.forEach((o) => {
+        void syncOrderToD1(o);
       });
     }
-  };
+  }, []);
 
   const handleCustomerLogin = async (payload: { email: string; firstName: string; lastName: string; phone: string }) => {
     const response = await fetch(`${PAYMENTS_API_BASE}/api/account/login`, {
@@ -355,7 +393,7 @@ export default function App() {
           });
         }
 
-        return {
+        const updated: Order = {
           ...o,
           orderStatus: newStatus,
           trackingNumber: trackingNumber || o.trackingNumber,
@@ -363,6 +401,8 @@ export default function App() {
           // Generate invoice number once delivered as per the business trigger rule!
           invoiceNumber: newStatus === 'livree' && !o.invoiceNumber ? `FAC-${o.id.replace('CMD-', '')}` : o.invoiceNumber
         };
+        void syncOrderToD1(updated);
+        return updated;
       })
     );
   };
@@ -373,20 +413,29 @@ export default function App() {
       prev.map((o) => {
         if (o.id !== orderId) return o;
         const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
-        return {
+        const isDigitalOnly = o.items.every((i) => i.format === 'numerique_pdf');
+        const updated: Order = {
           ...o,
           paymentStatus: 'paye',
-          orderStatus: 'en_preparation',
+          orderStatus: isDigitalOnly ? 'livree' : 'en_preparation',
           chequeReceivedDate: now,
+          invoiceNumber: isDigitalOnly && !o.invoiceNumber ? `FAC-${o.id.replace('CMD-', '')}` : o.invoiceNumber,
+          notes: isDigitalOnly
+            ? 'Commande 100% numérique payée en ligne. Téléchargements activés.'
+            : o.notes,
           trackingHistory: [
             ...(o.trackingHistory || []),
             {
               date: now,
-              status: 'Chèque postal validé à La Banque Postale - Préparation du colis en cours',
+              status: isDigitalOnly
+                ? 'Règlement validé - Accès numérique PDF immédiat débloqué'
+                : 'Chèque postal validé à La Banque Postale - Préparation du colis en cours',
               location: 'Éditions Émile Mourey'
             }
           ]
         };
+        void syncOrderToD1(updated);
+        return updated;
       })
     );
   };
@@ -588,6 +637,12 @@ export default function App() {
               if (book) setSelectedBook(book);
             }}
             onNavigateCatalog={() => setCurrentView('catalog')}
+            onValidateChequePayment={handleValidateChequePayment}
+            onSyncOrders={async () => {
+              for (const o of orders) {
+                await syncOrderToD1(o);
+              }
+            }}
           />
         )}
 

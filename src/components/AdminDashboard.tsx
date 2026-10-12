@@ -50,6 +50,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newBookPrice, setNewBookPrice] = useState('24.00');
   const [newBookPriceEbook, setNewBookPriceEbook] = useState('9.90');
   const [newBookDigitalPdfUrl, setNewBookDigitalPdfUrl] = useState('');
+  const [newBookKindleAsin, setNewBookKindleAsin] = useState('');
+  const [newBookR2Key, setNewBookR2Key] = useState('');
+  const [newBookIsManuscript, setNewBookIsManuscript] = useState(false);
   const [newBookWeight, setNewBookWeight] = useState('450');
   const [newBookStock, setNewBookStock] = useState('20');
   const [newBookIsbn, setNewBookIsbn] = useState('978-2-9538412-6-8');
@@ -99,7 +102,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       publisher: 'Éditions Émile Mourey',
       publicationYear: 2026,
       pages: 280,
-      isbn: newBookIsbn,
+      isbn: newBookIsManuscript ? 'Sans ISBN (Hors commerce)' : newBookIsbn,
       dimensions: '15 × 21 cm, broché',
       weightGrams: parseInt(newBookWeight, 10) || 450,
       price: pricePapier,
@@ -115,13 +118,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       coverBgColor: '#4A2818',
       coverAccentColor: '#D4AF37',
       motif: 'shield',
-      digitalPdfUrl: newBookDigitalPdfUrl || ''
+      kindleAsin: newBookKindleAsin.trim() || undefined,
+      kindleUrl: newBookKindleAsin.trim() ? `https://www.amazon.fr/dp/${newBookKindleAsin.trim()}/` : undefined,
+      r2Key: newBookR2Key.trim() || `livres/mourey-${Date.now()}.pdf`,
+      canBuyPdf: !newBookIsManuscript,
+      isManuscript: newBookIsManuscript,
+      isUnpublished: newBookIsManuscript,
+      digitalPdfUrl: newBookIsManuscript ? '' : (newBookR2Key.trim() || newBookDigitalPdfUrl || '')
     };
 
     onAddBook(newBook);
     setShowAddBookModal(false);
     setNewBookTitle('');
     setNewBookSubtitle('');
+    setNewBookKindleAsin('');
+    setNewBookR2Key('');
+    setNewBookIsManuscript(false);
   };
 
   return (
@@ -691,15 +703,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-stone-700 mb-1">Lien fichier PDF numérique sécurisé (Google Drive / Cloud)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">Clé Cloudflare R2 (Stockage PDF)</label>
+                  <input
+                    type="text"
+                    value={newBookR2Key}
+                    onChange={(e) => setNewBookR2Key(e.target.value)}
+                    placeholder="livres/nom-du-livre.pdf"
+                    className="w-full px-3 py-1.5 border border-stone-300 rounded text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">ASIN Amazon Kindle</label>
+                  <input
+                    type="text"
+                    value={newBookKindleAsin}
+                    onChange={(e) => setNewBookKindleAsin(e.target.value)}
+                    placeholder="B0D1234567 ou ISBN-10"
+                    className="w-full px-3 py-1.5 border border-stone-300 rounded text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-amber-50 rounded border border-amber-200 flex items-center gap-2">
                 <input
-                  type="url"
-                  value={newBookDigitalPdfUrl}
-                  onChange={(e) => setNewBookDigitalPdfUrl(e.target.value)}
-                  placeholder="https://drive.google.com/..."
-                  className="w-full px-3 py-1.5 border border-stone-300 rounded text-xs font-mono"
+                  type="checkbox"
+                  id="isManuscriptToggle"
+                  checked={newBookIsManuscript}
+                  onChange={(e) => setNewBookIsManuscript(e.target.checked)}
+                  className="rounded text-[#8B1E2D] focus:ring-[#8B1E2D]"
                 />
+                <label htmlFor="isManuscriptToggle" className="text-xs text-amber-950 font-medium cursor-pointer">
+                  Manuscrit Inédit (Protection Droits d'Auteur : consultation d'extraits uniquement, pas de vente de PDF brut)
+                </label>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -736,6 +773,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="Histoire de Bibracte">Histoire de Bibracte</option>
                     <option value="Gergovie & Gaule">Gergovie & Gaule</option>
                     <option value="Histoire du Christ">Histoire du Christ</option>
+                    <option value="Histoire de Mahomet">Histoire de Mahomet</option>
+                    <option value="Manuscrits Inédits">Manuscrits Inédits</option>
                     <option value="Coffrets & Intégrales">Coffrets & Intégrales</option>
                   </select>
                 </div>

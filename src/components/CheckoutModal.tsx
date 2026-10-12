@@ -195,6 +195,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const pendingOrder = buildOrder(path === '/checkout/stripe' ? 'stripe_card' : 'paypal');
       sessionStorage.setItem('pending_payment_order', JSON.stringify(pendingOrder));
       sessionStorage.setItem('pending_payment_provider', path === '/checkout/stripe' ? 'stripe' : 'paypal');
+
+      // Pre-persist order in D1 before redirection
+      fetch(`${PAYMENTS_API_BASE}/api/account/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: pendingOrder.customer.email,
+          firstName: pendingOrder.customer.firstName,
+          lastName: pendingOrder.customer.lastName,
+          phone: pendingOrder.customer.phone,
+          order: pendingOrder
+        }),
+        keepalive: true
+      }).catch(() => {});
+
       window.location.assign(redirectUrl);
     } catch (error) {
       setPaymentError(error instanceof Error ? error.message : 'Erreur de paiement');
@@ -204,6 +219,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleCardPayment = () => {
     void redirectToHostedCheckout('/checkout/stripe');
+  };
+
+  const confirm3DSecure = () => {
+    setShow3DSecureModal(false);
+    handleCompleteOrder('stripe_card');
   };
 
   return (

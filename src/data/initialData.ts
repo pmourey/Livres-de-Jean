@@ -68,7 +68,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#D4AF37',
     motif: 'shield',
     amazonUrl: 'https://www.amazon.fr/dp/2950729517/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729517',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729517/',
+    r2Key: 'livres/mourey-gergovie-tome-1.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
   },
 
   // 2. HISTOIRE DE BIBRACTE - TOME 2 : LE BOUCLIER ÉDUEN
@@ -119,7 +124,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#E6C687',
     motif: 'fortress',
     amazonUrl: 'https://www.amazon.fr/dp/2950729509/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729509',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729509/',
+    r2Key: 'livres/mourey-bibracte-tome-2-bouclier-eduen.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-bibracte-tome-2-bouclier-eduen.pdf'
   },
 
   // 3. HISTOIRE DE BIBRACTE - TOME 3 : L'ÉPÉE FLAMBOYANTE
@@ -168,7 +178,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#DFBD74',
     motif: 'laurel',
     amazonUrl: 'https://www.decitre.fr/livres/histoire-de-bibracte-9782950729521.html',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729525',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729525/',
+    r2Key: 'livres/mourey-bibracte-tome-3-epee-flamboyante.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-bibracte-tome-3-epee-flamboyante.pdf'
   },
 
   // 4. HISTOIRE DE BIBRACTE - TOME 4 : DIEU RAYONNANT
@@ -219,7 +234,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#F5C77E',
     motif: 'scroll',
     amazonUrl: 'https://www.amazon.fr/dp/2950729533/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729533',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729533/',
+    r2Key: 'livres/mourey-bibracte-tome-4-dieu-rayonnant.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-bibracte-tome-4-dieu-rayonnant.pdf'
   },
 
   // 5. HISTOIRE DE BIBRACTE - TOME 5 : DIEU CACHÉ
@@ -270,7 +290,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#D97706',
     motif: 'shield',
     amazonUrl: 'https://www.amazon.fr/dp/2950729541/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729541',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729541/',
+    r2Key: 'livres/mourey-bibracte-tome-5-dieu-cache.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-bibracte-tome-5-dieu-cache.pdf'
   },
 
   // 6. HISTOIRE DU CHRIST - TOME 1
@@ -320,7 +345,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#E2B86E',
     motif: 'cross',
     amazonUrl: 'https://www.amazon.fr/dp/295072955X/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '295072955X',
+    kindleUrl: 'https://www.amazon.fr/dp/295072955X/',
+    r2Key: 'livres/mourey-christ-tome-1.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-christ-tome-1.pdf'
   },
 
   // 7. HISTOIRE DU CHRIST - TOME 2
@@ -367,7 +397,12 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverAccentColor: '#DFBD74',
     motif: 'cross',
     amazonUrl: 'https://www.amazon.fr/dp/2950729568/',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    kindleAsin: '2950729568',
+    kindleUrl: 'https://www.amazon.fr/dp/2950729568/',
+    r2Key: 'livres/mourey-christ-tome-2.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-christ-tome-2.pdf'
   },
 
   // 8. COFFRET INTÉGRALE HISTOIRE DE BIBRACTE (4 VOLUMES)
@@ -414,7 +449,10 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverBgColor: '#2F1810',
     coverAccentColor: '#F59E0B',
     motif: 'fortress',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    r2Key: 'livres/mourey-coffret-integrale-bibracte.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-coffret-integrale-bibracte.pdf'
   },
 
   // 9. DUO HISTOIRE DU CHRIST (2 TOMES)
@@ -458,7 +496,10 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverBgColor: '#281525',
     coverAccentColor: '#E6C687',
     motif: 'cross',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    r2Key: 'livres/mourey-duo-histoire-du-christ.pdf',
+    canBuyPdf: true,
+    isManuscript: false,
+    digitalPdfUrl: 'livres/mourey-duo-histoire-du-christ.pdf'
   },
 
   // 10. HISTOIRE DE MAHOMET - TOME 1 (INÉDIT / SANS ISBN / HORS VENTE)
@@ -478,8 +519,11 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     priceEbook: 0,
     category: 'Histoire de Mahomet',
     isUnpublished: true,
+    isManuscript: true,
+    canBuyPdf: false,
+    r2Key: 'manuscrits/mourey-mahomet-tome-1.pdf',
     availabilityNotice:
-      "Ouvrage inédit d'Émile Mourey n'ayant pas fait l'objet d'un dépôt légal officiel (aucun numéro ISBN attribué). Cet ouvrage ne peut pas être mis à la vente. Il sera consultable prochainement sous forme de document PDF téléchargeable (ou via un service en ligne d'impression à la demande en cours de définition).",
+      "Manuscrit inédit d'Émile Mourey protégé par le droit d'auteur (hors commerce / sans dépôt légal). Afin de garantir l'antériorité de la recherche et de prévenir la diffusion incontrôlée, aucun fichier PDF brut n'est vendu en téléchargement libre. Les extraits sont consultables en ligne sur le site.",
     shortDescription:
       "Une enquête historique rigoureuse confrontant la Chronique universelle de Tabari aux réalités géographiques, tribales et religieuses de l'Arabie préislamique.",
     fullSynopsis: [
@@ -516,7 +560,7 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverBgColor: '#0F2E22', // Islamic Emerald Green
     coverAccentColor: '#E6C687',
     motif: 'moon',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    digitalPdfUrl: ''
   },
 
   // 11. HISTOIRE DE MAHOMET - TOME 2 (INÉDIT / SANS ISBN / HORS VENTE)
@@ -536,8 +580,11 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     priceEbook: 0,
     category: 'Histoire de Mahomet',
     isUnpublished: true,
+    isManuscript: true,
+    canBuyPdf: false,
+    r2Key: 'manuscrits/mourey-mahomet-tome-2.pdf',
     availabilityNotice:
-      "Ouvrage inédit d'Émile Mourey n'ayant pas fait l'objet d'un dépôt légal officiel (aucun numéro ISBN attribué). Non mis à la vente. Ce livre sera consultable prochainement sous forme de document PDF téléchargeable (ou via un service d'impression à la demande en cours de mise en place).",
+      "Manuscrit patrimonial d'Émile Mourey sans dépôt légal. Ouvrage réservé à la recherche et à la consultation d'extraits sur le site. Aucune commercialisation de PDF téléchargeable pour protéger les droits moraux et patrimoniaux de l'auteur.",
     shortDescription:
       "De l'Hégire (622) aux derniers adieux : l'édification de l'État médinois, la diplomatie des traités et les campagnes militaires analysées d'après Tabari.",
     fullSynopsis: [
@@ -570,7 +617,7 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverBgColor: '#132B3B', // Deep Sapphire Blue
     coverAccentColor: '#E2B86E',
     motif: 'moon',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    digitalPdfUrl: ''
   },
 
   // 12. LA GAULE EN HÉRITAGE (MANUSCRIT INÉDIT / SANS ISBN / HORS VENTE)
@@ -589,8 +636,11 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     priceEbook: 0,
     category: 'Manuscrits Inédits',
     isUnpublished: true,
+    isManuscript: true,
+    canBuyPdf: false,
+    r2Key: 'manuscrits/mourey-gaule-en-heritage.pdf',
     availabilityNotice:
-      "Manuscrit inédit d'Émile Mourey non soumis à dépôt légal (aucun numéro ISBN attribué). Hors commerce. Cet ouvrage ne peut pas être mis à la vente. Il sera consultable prochainement sous forme de document PDF téléchargeable (ou via un service en ligne d'impression à la demande en cours de définition).",
+      "Manuscrit inédit d'Émile Mourey non soumis à dépôt légal (sans ISBN). Hors commerce. Protégé au titre de la propriété intellectuelle : consultation d'extraits en ligne uniquement, pas de vente de PDF téléchargeable.",
     shortDescription:
       "Le grand testament intellectuel d'Émile Mourey : synthèse de 25 années de recherches sur l'identité souveraine de la Gaule, ses oppida véritables et son héritage impérissable.",
     fullSynopsis: [
@@ -622,7 +672,7 @@ export const INITIAL_BOOKS: Book[] = [ //[cite: 11]
     coverBgColor: '#3A192B', // Imperial Roman Purple / Amaranth
     coverAccentColor: '#DFBD74',
     motif: 'laurel',
-    digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+    digitalPdfUrl: ''
   }
 ];
 
@@ -691,6 +741,186 @@ export const DEMO_CUSTOMER: UserAccount = {
 
 export const INITIAL_ORDERS: Order[] = [
   {
+    id: 'CMD-2026-0389',
+    date: '2026-10-12',
+    customer: {
+      firstName: 'Philippe',
+      lastName: 'Mourey',
+      email: 'philippe.mourey@gmail.com',
+      phone: '06 12 34 56 78',
+      street: '18 Rue des Éduens',
+      postalCode: '71200',
+      city: 'Le Creusot',
+      country: 'France'
+    },
+    items: [
+      {
+        bookId: 'mourey-gergovie-tome-1',
+        title: 'Histoire de Gergovie',
+        format: 'numerique_pdf',
+        unitPrice: 9.9,
+        quantity: 1,
+        weightGrams: 0,
+        dedicationRequested: false,
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
+      }
+    ],
+    subtotal: 9.9,
+    shippingMethod: 'telechargement_numerique',
+    shippingCost: 0.0,
+    total: 9.9,
+    totalWeightGrams: 0,
+    paymentMethod: 'cheque_postal',
+    paymentStatus: 'paye',
+    orderStatus: 'livree',
+    invoiceNumber: 'FAC-2026-0389',
+    notes: 'Commande 100% numérique payée en ligne. Téléchargements activés.'
+  },
+  {
+    id: 'CMD-2026-0570',
+    date: '2026-10-12',
+    customer: {
+      firstName: 'Philippe',
+      lastName: 'Mourey',
+      email: 'philippe.mourey@gmail.com',
+      phone: '06 12 34 56 78',
+      street: '18 Rue des Éduens',
+      postalCode: '71200',
+      city: 'Le Creusot',
+      country: 'France'
+    },
+    items: [
+      {
+        bookId: 'mourey-gergovie-tome-1',
+        title: 'Histoire de Gergovie',
+        format: 'numerique_pdf',
+        unitPrice: 9.9,
+        quantity: 1,
+        weightGrams: 0,
+        dedicationRequested: false,
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
+      }
+    ],
+    subtotal: 9.9,
+    shippingMethod: 'telechargement_numerique',
+    shippingCost: 0.0,
+    total: 9.9,
+    totalWeightGrams: 0,
+    paymentMethod: 'stripe_card',
+    paymentStatus: 'paye',
+    orderStatus: 'livree',
+    invoiceNumber: 'FAC-2026-0570',
+    notes: 'Commande numérique PDF validée. Téléchargements activés.'
+  },
+  {
+    id: 'CMD-2026-0844',
+    date: '2026-10-12',
+    customer: {
+      firstName: 'Philippe',
+      lastName: 'Mourey',
+      email: 'philippe.mourey@gmail.com',
+      phone: '06 12 34 56 78',
+      street: '18 Rue des Éduens',
+      postalCode: '71200',
+      city: 'Le Creusot',
+      country: 'France'
+    },
+    items: [
+      {
+        bookId: 'mourey-gergovie-tome-1',
+        title: 'Histoire de Gergovie : Tome 1',
+        format: 'numerique_pdf',
+        unitPrice: 0.5,
+        quantity: 1,
+        weightGrams: 0,
+        dedicationRequested: false,
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
+      }
+    ],
+    subtotal: 0.5,
+    shippingMethod: 'telechargement_numerique',
+    shippingCost: 0.0,
+    total: 0.5,
+    totalWeightGrams: 0,
+    paymentMethod: 'stripe_card',
+    paymentStatus: 'paye',
+    orderStatus: 'livree',
+    invoiceNumber: 'FAC-2026-0844',
+    notes: 'Commande test version numérique PDF validée. Téléchargement Cloudflare R2 direct.'
+  },
+  {
+    id: 'CMD-2026-0181',
+    date: '2026-10-12',
+    customer: {
+      firstName: 'Philippe',
+      lastName: 'Mourey',
+      email: 'philippe.mourey@gmail.com',
+      phone: '06 12 34 56 78',
+      street: '18 Rue des Éduens',
+      postalCode: '71200',
+      city: 'Le Creusot',
+      country: 'France'
+    },
+    items: [
+      {
+        bookId: 'mourey-gergovie-tome-1',
+        title: 'Histoire de Gergovie',
+        format: 'numerique_pdf',
+        unitPrice: 0.5,
+        quantity: 1,
+        weightGrams: 0,
+        dedicationRequested: false,
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
+      }
+    ],
+    subtotal: 0.5,
+    shippingMethod: 'telechargement_numerique',
+    shippingCost: 0.0,
+    total: 0.5,
+    totalWeightGrams: 0,
+    paymentMethod: 'cheque_postal',
+    paymentStatus: 'paye',
+    orderStatus: 'livree',
+    invoiceNumber: 'FAC-2026-0181',
+    notes: 'Commande 100% numérique payée en ligne. Téléchargements activés.'
+  },
+  {
+    id: 'CMD-2026-0970',
+    date: '2026-10-12',
+    customer: {
+      firstName: 'Philippe',
+      lastName: 'Mourey',
+      email: 'philippe.mourey@gmail.com',
+      phone: '06 12 34 56 78',
+      street: '18 Rue des Éduens',
+      postalCode: '71200',
+      city: 'Le Creusot',
+      country: 'France'
+    },
+    items: [
+      {
+        bookId: 'mourey-gergovie-tome-1',
+        title: 'Histoire de Gergovie',
+        format: 'numerique_pdf',
+        unitPrice: 0.5,
+        quantity: 1,
+        weightGrams: 0,
+        dedicationRequested: false,
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
+      }
+    ],
+    subtotal: 0.5,
+    shippingMethod: 'telechargement_numerique',
+    shippingCost: 0.0,
+    total: 0.5,
+    totalWeightGrams: 0,
+    paymentMethod: 'cheque_postal',
+    paymentStatus: 'paye',
+    orderStatus: 'livree',
+    invoiceNumber: 'FAC-2026-0970',
+    notes: 'Commande 100% numérique payée en ligne. Téléchargements activés.'
+  },
+  {
     id: 'CMD-2026-0210',
     date: '2026-10-05',
     customer: {
@@ -712,7 +942,7 @@ export const INITIAL_ORDERS: Order[] = [
         quantity: 1,
         weightGrams: 0,
         dedicationRequested: false,
-        digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+        digitalPdfUrl: 'livres/mourey-gergovie-tome-1.pdf'
       },
       {
         bookId: 'mourey-bibracte-tome-2-bouclier-eduen',
@@ -722,7 +952,7 @@ export const INITIAL_ORDERS: Order[] = [
         quantity: 1,
         weightGrams: 0,
         dedicationRequested: false,
-        digitalPdfUrl: GOOGLE_DRIVE_PDF_FOLDER
+        digitalPdfUrl: 'livres/mourey-bibracte-tome-2-bouclier-eduen.pdf'
       }
     ],
     subtotal: 19.8,
