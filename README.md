@@ -172,13 +172,35 @@ Dans Cloudflare Dashboard → Workers & Pages → ton Worker → Settings → Va
   - `https://api-m.sandbox.paypal.com` pour les tests
   - `https://api-m.paypal.com` en production
 
+Nouvelles variables du Worker pour la gestion des ebooks :
+
+- `ADMIN_SECRET` (Secret) — clé partagée requise dans l'en-tête X-Admin-Secret pour appeler l'endpoint d'administration `POST /api/account/orders/fulfill`.
+- `SENDGRID_API_KEY` (Secret, optionnel) — si renseignée, le Worker enverra un email au client après la fulfillment.
+
 Le Worker expose :
 - `GET /health`
 - `GET /`
 - `POST /checkout/stripe`
 - `POST /checkout/paypal`
+- `POST /api/account/orders/fulfill` (admin only — requires X-Admin-Secret header)
 
-Pour les boutons Kindle, l’application génère un lien de recherche Amazon Kindle à partir du titre et de l’auteur. Si vous avez des ASIN Kindle précis, vous pouvez aussi les enregistrer directement dans `src/data/initialData.ts` via `amazonKindleUrl`.
+Pour le flux de fulfillment :
+- L'admin appelle l'endpoint avec JSON { "orderId": "CMD-..." } et l'en-tête X-Admin-Secret.
+- Le Worker copie les fichiers référencés par item.digitalPdfUrl dans R2 sous la clé `customer-pdfs/{orderId}/{bookId}.pdf`, met à jour l'enregistrement de commande (définit `paymentStatus: 'paye'` et `orderStatus: 'completed'`) et renvoie les URLs de téléchargement.
+- Si `SENDGRID_API_KEY` est défini, un email est envoyé au client contenant les liens ; toutes les actions sont consignées dans une table `orders_audit`.
+
+### Running tests (fulfill + audit + email smoke tests)
+
+Les tests unitaires/intégration légers utilisent Vitest. Pour exécuter les tests localement :
+
+```bash
+npm ci
+npm run test
+```
+
+Remarques :
+- Vitest est ajouté en tant que devDependency et un test de base a été ajouté pour l'endpoint de fulfillment. Les tests utilisent un environnement mock léger et n'envoient pas de vrais emails.
+- Si vous exécutez les tests, installez d'abord les dépendances (`npm ci`).
 
 ### Déploiement du paiement sur Cloudflare Workers
 

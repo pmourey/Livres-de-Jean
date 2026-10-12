@@ -289,7 +289,7 @@ export default {
       }
     }
 
-    // Admin: fulfill an order by copying digital PDFs into R2 and updating order payload
+    // Admin: fulfill an order by copying digital PDFs into R2, updating order payload, sending email, and logging audit
     if (pathname === '/api/account/orders/fulfill' && request.method === 'POST') {
       const body = await readJson(request);
       const orderId = String(body?.orderId || '');
@@ -305,9 +305,11 @@ export default {
         const orderRow = await env.DB.prepare('SELECT customer_id, payload_json FROM orders WHERE id = ?').bind(orderId).first<{ customer_id: string; payload_json: string }>();
         if (!orderRow?.payload_json) return json({ error: 'Order not found' }, { status: 404 });
 
-        const order = JSON.parse(orderRow.payload_json) as { items?: Array<{ bookId: string; digitalPdfUrl?: string; format?: string }>; paymentStatus?: string; orderStatus?: string };
+        const customerId = orderRow.customer_id;
+        const order = JSON.parse(orderRow.payload_json) as { items?: Array<{ bookId: string; digitalPdfUrl?: string; format?: string; title?: string }>; paymentStatus?: string; orderStatus?: string; customer?: { email?: string } };
 
         // For each digital item, fetch the source PDF and put into R2 under customer-pdfs/{orderId}/{bookId}.pdf
+        const downloadUrls: string[] = [];
         for (const item of (order.items || [])) {
           if (!(item.format === 'numerique_pdf' || item.format === 'pack_duo')) continue;
           const srcUrl = item.digitalPdfUrl;
@@ -324,7 +326,9 @@ export default {
             // store in R2
             await env.PDFS.put(key, arrayBuffer, { httpMetadata: { contentType: 'application/pdf' } });
             // update item's digitalPdfUrl to point to the worker download endpoint
-            item.digitalPdfUrl = `${env.SITE_URL.replace(/\/$/, '')}/api/download/${orderId}/${item.bookId}`;
+            const downloadUrl = `${env.SITE_URL.replace(/\/$/, '')}/api/download/${orderId}/${item.bookId}`;
+            item.digitalPdfUrl = downloadUrl;
+            downloadUrls.push(downloadUrl);
           } catch (err) {
             console.error('Error copying PDF for', item.bookId, err);
           }
@@ -338,7 +342,51 @@ export default {
         // persist updated order payload
         await env.DB.prepare('UPDATE orders SET payload_json = ? WHERE id = ?').bind(JSON.stringify(order), orderId).run();
 
-        return json({ ok: true, orderId });
+        // create audit table if not exists and insert an audit row
+        try {
+          await env.DB.prepare('CREATE TABLE IF NOT EXISTS orders_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, action TEXT, actor TEXT, timestamp TEXT, details TEXT)').run();
+          await env.DB.prepare('INSERT INTO orders_audit (order_id, action, actor, timestamp, details) VALUES (?, ?, ?, ?, ?)')
+            .bind(orderId, 'fulfill', adminSecretHeader ? 'admin' : 'unknown', new Date().toISOString(), JSON.stringify({ downloadUrls }))
+            .run();
+        } catch (auditErr) {
+          console.warn('Failed to write audit log', auditErr);
+        }
+
+        // send an email notification to the customer if SENDGRID_API_KEY is configured
+        try {
+          const customerEmail = order.customer?.email || '';
+          if (env.SENDGRID_API_KEY && customerEmail && downloadUrls.length) {
+            const msg = {
+              personalizations: [{ to: [{ email: customerEmail }], subject: 'Votre commande est prête — Téléchargement' }],
+              from: { email: 'no-reply@livres-de-jean.fr', name: 'Livres de Jean' },
+              content: [
+                { type: 'text/plain', value: `Bonjour,\n\nVotre commande ${orderId} a été traitée. Téléchargez vos fichiers ici:\n\n${downloadUrls.join('\n')}\n\nMerci.` }
+              ]
+            };
+
+            await fetch('https://api.sendgrid.com/v3/mail/send', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(msg)
+            });
+
+            // insert audit entry for email
+            try {
+              await env.DB.prepare('INSERT INTO orders_audit (order_id, action, actor, timestamp, details) VALUES (?, ?, ?, ?, ?)')
+                .bind(orderId, 'email_sent', 'system', new Date().toISOString(), JSON.stringify({ to: customerEmail, downloadUrls }))
+                .run();
+            } catch (emailAuditErr) {
+              console.warn('Failed to write email audit log', emailAuditErr);
+            }
+          }
+        } catch (emailErr) {
+          console.warn('Failed to send email', emailErr);
+        }
+
+        return json({ ok: true, orderId, downloadUrls });
       } catch (err) {
         console.error('Failed to fulfill order', err);
         return json({ error: 'Failed to fulfill order' }, { status: 500 });
