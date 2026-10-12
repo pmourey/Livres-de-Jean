@@ -357,7 +357,19 @@ export default function App() {
     }
   }, []);
 
-  const handleCustomerLogin = async (payload: { email: string; firstName: string; lastName: string; phone: string }) => {
+  const handleCustomerLogin = async (payload: { email: string; firstName: string; lastName: string; phone?: string; token?: string }) => {
+    if (payload.token) {
+      setCustomerToken(payload.token);
+      setCurrentUser((prev) => ({
+        ...prev,
+        email: payload.email,
+        firstName: payload.firstName || prev.firstName,
+        lastName: payload.lastName || prev.lastName,
+        phone: payload.phone || prev.phone
+      }));
+      return;
+    }
+
     const response = await fetch(`${PAYMENTS_API_BASE}/api/account/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -369,6 +381,11 @@ export default function App() {
     }
     setCustomerToken(data.token);
     setCurrentUser((prev) => ({ ...prev, ...payload }));
+  };
+
+  const handleCustomerLogout = () => {
+    setCustomerToken('');
+    localStorage.removeItem('emile_mourey_customer_token');
   };
 
   // Admin actions: update status
@@ -630,6 +647,7 @@ export default function App() {
             books={books}
             customerToken={customerToken}
             onLogin={handleCustomerLogin}
+            onLogout={handleCustomerLogout}
             onOpenClaim={handleOpenClaim}
             onSendClaimMessage={handleSendClaimMessage}
             onViewBook={(bookId) => {
@@ -656,6 +674,7 @@ export default function App() {
             onUpdateBookStock={handleUpdateBookStock}
             onAddBook={handleAddBook}
             onAnswerClaim={handleAnswerClaim}
+            onExitAdmin={() => setCurrentView('catalog')}
           />
         )}
       </main>

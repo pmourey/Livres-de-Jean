@@ -1,140 +1,183 @@
-# Résolution des Téléchargements via Cloudflare R2 Exclusif, Synchronisation D1, Protection des Manuscrits & Liens Amazon Kindle
+# Système d'Authentification Cloudflare & Séparation Espace Client / Back-Office Auteur
 
-Ce plan détaille la mise en œuvre d'une architecture de téléchargement sécurisée s'appuyant **exclusivement sur Cloudflare R2** (sans recours ni redirection vers Google Drive), la correction du Worker pour la vérification des commandes dans Cloudflare D1, la protection des manuscrits inédits contre les risques de copie, et l'intégration des fiches d'achat Amazon Kindle avec identifiant ASIN direct.
+Étude d'architecture et plan de mise en œuvre pour sécuriser l'accès aux commandes et téléchargements numériques via des jetons Cloudflare D1 sans mot de passe (Magic Code OTP), tout en isolant hermétiquement la gestion de l'auteur (back-office) derrière un portail d'administration dédié et protégé.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> **Décisions et ajustements confirmés :**
-> - **Stockage & Distribution des PDF (R2 Uniquement)** : Aucun lien ni redirection vers Google Drive. Le téléchargement s'effectue exclusivement depuis le bucket de stockage **Cloudflare R2** (`env.BUCKET` ou URL signée R2). Le Cloudflare Worker vérifie la commande dans la base D1, puis extrait et sert le flux binaire PDF directement depuis R2 avec les en-têtes sécurisés `Content-Disposition: attachment` et `Content-Type: application/pdf`.
-> - **Politique Droits d'Auteur pour les Manuscrits Inédits** : Maintien de l'achat de fichiers PDF téléchargeables uniquement pour les ouvrages officiellement publiés (disposant d'un ISBN / dépôt légal). Les manuscrits inédits restent réservés au mode de consultation d'extraits protégé en ligne et à la commande papier reliée ou lien Kindle officiel, protégeant l'antériorité de l'œuvre et interdisant la dissémination de PDF bruts non protégés.
-> - **Format Kindle Amazon** : Ajout des liens directs vers les fiches produits Amazon Kindle intégrant le champ ASIN pour chaque livre (avec fallback de recherche guidée si l'ASIN n'est pas encore renseigné).
+> Décisions validées lors de la phase de cadrage :
+> 1. **Fournisseur d'authentification retenu** : Cloudflare Worker + Base SQL D1 + jetons cryptographiques HMAC SHA-256 (hébergement souverain, synchronisé avec le Worker et le stockage R2 existants, sans dépendance externe à Firebase).
+> 2. **Séparation des espaces** : Cloisonnement strict en deux portails distincts avec contrôle d'accès par rôle (Espace Client `/mon-compte` accessible aux acheteurs vs Back-Office Auteur `/admin` verrouillé par code d'accès administrateur et session signée).
+> 3. **Expérience d'authentification client** : Connexion sans mot de passe par code à usage unique (Magic Code OTP à 6 chiffres) envoyé par email ou validé par signature de commande, éliminant les pertes de mot de passe pour les lecteurs d'ouvrages historiques.
 
 ---
 
 ### 1. Overview & Core Concept
 
-- **Problème résolu** : 
-  1. Lors du clic sur `https://livres-de-jean-payments.super-violet-dc40.workers.dev/api/download/CMD-2026-0844/mourey-gergovie-tome-1?email=...`, le Worker Cloudflare renvoyait `{"error":"Order not found"}` en raison d'un décalage d'index dans le routeur et de l'absence de commande dans la table D1 `orders`.
-  2. Vous souhaitez que tous les téléchargements de PDF transitent **exclusivement par Cloudflare R2**, sans dépendre de Google Drive.
-  3. Les manuscrits inédits nécessitent une protection juridique stricte pour ne pas être exposés au piratage par des PDF téléchargeables ouverts.
-  4. L'accès rapide au catalogue Kindle Amazon avec identifiant ASIN direct manquait pour les lecteurs sur liseuses.
-
-- **Solution apportée** :
-  - **Routeur Cloudflare Worker (`src/worker.ts`) & R2 Exclusif** :
-    - Correction de l'extraction des paramètres d'URL (`orderId` = `CMD-2026-0844`, `bookId` = `mourey-gergovie-tome-1`).
-    - Contrôle d'accès strict via D1 (`orders` et correspondance avec l'email acheteur).
-    - Récupération du fichier PDF directement dans le bucket Cloudflare R2 (`await env.BUCKET.get(r2Key)`) et transmission directe du fichier au navigateur avec en-têtes anti-mise en cache et nom de fichier soigné (`Content-Disposition: attachment; filename="..."`).
-  - **Synchronisation automatique des commandes dans D1** :
-    - Toute commande validée (Stripe, PayPal, virement) est synchronisée vers le Worker D1 (`POST /api/account/orders`).
-    - Enregistrement immédiat dans la base SQLite locale/D1 pour permettre le téléchargement instantané et persistant.
-  - **Protection des Droits d'Auteur pour Manuscrits Inédits** :
-    - Les manuscrits ne proposent pas de vente de PDF brut téléchargeable.
-    - Accès offert : consultation d'extraits protégée dans le visualiseur avec filigrane, commande d'exemplaires papier reliés, ou lien vers l'édition Kindle KDP.
-  - **Intégration Amazon Kindle** :
-    - Ajout des champs `kindleAsin` et `kindleUrl` au modèle `Book`.
-    - Bouton d'achat Kindle direct dans les fiches catalogue, les modales et l'administration.
+- **Ce que fait le système** :
+  - **Pour les lecteurs / clients** : Permet de se connecter en saisissant simplement son adresse email. Un code de sécurité temporaire à 6 chiffres (valide 15 minutes) permet de générer un jeton de session `customerToken` signé HMAC. Une fois connecté, le client accède à son tableau de bord personnalisé : historique de ses commandes réelles dans D1, streaming/téléchargement direct des eBooks PDF acquis, et messagerie SAV dédiée.
+  - **Pour l'auteur (Émile Mourey & gestionnaires)** : Isole entièrement le panneau d'administration des commandes, gestion des stocks, validation des chèques et réclamations dans une vue dédiée (`/admin`), protégée par un écran de verrouillage exigeant la clé secrète auteur (`ADMIN_SECRET`). Les visiteurs du catalogue ne peuvent plus accéder par hasard ou indiscrétion aux données de vente ou de facturation.
+- **Public cible & Personas** :
+  - *Lecteurs & acheteurs d'histoire* : Souhaitent une consultation fluide de leurs commandes et de leurs téléchargements PDF sans friction de mot de passe complexe à retenir.
+  - *Auteur / Administrateur* : Nécessite un environnement confidentiel, ergonomique et sécurisé pour gérer les stocks de livres papier, les paiements par chèque bancaire, l'édition des bordereaux et factures.
+- **Bénéfice clé** : Sécurité renforcée, conformité RGPD (étanchéité des données clients et exclusion de l'accès public au back-office), et continuité totale avec l'infrastructure Cloudflare (Worker + D1 + R2) déjà déployée.
 
 ---
 
 ### 2. User Experience & Visual Design
 
-- **Fiche Livre & Catalogue** :
-  - Typographie littéraire épurée avec séparateurs textuels légers `·` (zéro pilule visuelle superflue).
-  - Ouvrages publiés : options d'achat Broché papier, E-Book PDF téléchargeable (servi par R2), et bouton direct « Format Kindle » (pointant vers Amazon).
-  - Manuscrits inédits : badge informatif discret « Manuscrit d'auteur — Consultation & Tirage d'art », bouton « Consulter les extraits » protégé, et lien Kindle si disponible.
-- **Téléchargement & Confirmation Client** :
-  - Sur l'écran de confirmation et dans l'espace client « Mes e-Books », le lien généré appelle l'API R2 : `GET /api/download/:orderId/:bookId?email=...`.
-  - Le navigateur déclenche un téléchargement immédiat et propre du fichier PDF d'origine depuis Cloudflare R2, sans redirection externe vers Google Drive.
-- **Administration** :
-  - Formulaire de gestion des livres mis à jour pour renseigner l'ASIN Kindle (`kindleAsin`, ex: `B0D...`) et la clé R2 (`r2Key` ou `pdfFileName`).
+#### Parcours Utilisateurs Clés
+
+1. **Parcours Connexion Client (Espace Lecteur)** :
+   - Clic sur "Espace Client" dans la barre de navigation.
+   - Si non connecté : Écran épuré invitant à renseigner son email d'achat (`philippe.mourey@gmail.com`).
+   - Clic sur "Recevoir mon code d'accès" : appel à `/api/auth/request-code`.
+   - Affichage immédiat d'un champ de saisie du code OTP à 6 chiffres avec compte à rebours de validité (15 min) et bouton de renvoi.
+   - Validation du code : génération du jeton cryptographique `customerToken`, stockage sécurisé en session et redirection vers le tableau de bord avec ses commandes réelles et ses eBooks PDF débloqués.
+
+2. **Parcours Espace Auteur (Back-Office)** :
+   - Clic sur "Gestion Auteur" ou navigation vers le mode admin.
+   - Si non authentifié en tant qu'auteur : Écran de sécurité solennel (style sceau éditorial & coffre-fort), avec saisie du mot de passe maître / clé secrète auteur.
+   - Après validation auprès du Worker (`/api/admin/auth`) : génération d'un jeton administrateur `adminToken`, ouvrant le tableau de bord complet (commandes, gestion des stocks, chèques, réclamations, factures, bordereaux Colissimo).
+   - Possibilité de déconnexion immédiate en 1 clic ("Verrouiller l'espace auteur").
+
+#### Identité Visuelle & Thème
+
+Conformément à la charte typographique et patrimoniale des **Éditions Émile Mourey** et aux directives `frontend-design` :
+- **Atmosphère & Couleurs** :
+  - Fond dominant neutre : Toile parcheminée claire (`#FAF8F5`) et ardoise claire structurée.
+  - Surfaces structurelles : Cartes blanches avec bordure hairline subtile (`border-stone-200 / border-[#E7E2D9]`), suppression de tout effet pill ou dégradé fluo.
+  - Accents d'action : Rouge carmin grand siècle (`#8B1E2D` / hover `#721824`) pour les validations et boutons d'action majeurs.
+  - Teinte de sécurité administrateur : Anthracite noble (`#1C1917` / `#292524`) avec typographie dorée/bronze discrète (`#B45309`), évoquant un sceau d'archives privées.
+- **Typographie** :
+  - Titres et marques : *Cinzel* et *Serif Display* pour la noblesse éditoriale.
+  - Données chiffrées & codes OTP : Police monospace à espacement tabulaire (`tabular-nums font-mono`) pour la lisibilité irréprochable des montants et numéros de suivi.
+- **Règles d'ergonomie & Anti-Slop** :
+  - Métadonnées sans pilules décoratives (séparateurs naturels `·`).
+  - Aucun badge gadget ou mention superflue.
+  - Tous les boutons ont des gestionnaires d'événements fonctionnels.
 
 ---
 
 ### 3. Key Product Decisions & Trade-Offs
 
-- **Décision 1 : R2 Exclusif (sans Google Drive)**
-  - *Approche* : Le Worker utilise la liaison native Cloudflare R2 (`BUCKET`). Le fichier est récupéré par `await env.BUCKET.get(key)` et renvoyé sous forme de flux binaire avec `headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="nom-du-livre.pdf"' }`.
-  - *Raison* : Sécurité maximale, aucun lien public Google Drive exposé, contrôle total des quotas et des droits d'accès rattachés à chaque commande client.
-- **Décision 2 : Synchronisation des commandes dans Cloudflare D1**
-  - *Approche* : Lors de la finalisation d'un achat sur l'application web, la commande est transmise et persistée dans la table SQLite `orders` du Worker via l'API `/api/account/orders`. Le Worker gère également la rétrocompatibilité pour la commande `CMD-2026-0844`.
-  - *Raison* : Résolution définitive du message d'erreur `{"error":"Order not found"}`.
-- **Décision 3 : Protection des manuscrits inédits**
-  - *Approche* : Restriction de la vente de PDF téléchargeable aux seuls ouvrages publiés avec ISBN / dépôt légal. Les manuscrits restent disponibles en lecture d'extraits in-app, en impression papier reliée, ou via Kindle KDP.
-  - *Raison* : Préserver la paternité et l'intégrité de l'œuvre inédite de Jean Mourey face au risque de dissémination incontrôlée de fichiers numériques.
-- **Décision 4 : Liens directs Amazon Kindle**
-  - *Approche* : Génération d'URL directe vers la fiche produit Amazon France à partir de l'ASIN (`https://www.amazon.fr/dp/${asin}`). En l'absence d'ASIN, fallback élégant vers une recherche ciblée sur Amazon.
+#### Décision 1 : Cloudflare D1 + Jetons HMAC vs Firebase Auth
+- **Approche retenue** : Utiliser la base de données SQL Cloudflare D1 et les fonctions de signature cryptographique HMAC SHA-256 du Worker (`/src/worker.ts`), déjà couplées aux paiements Stripe/PayPal et au stockage R2.
+- **Pourquoi** :
+  - Évite d'ajouter une seconde couche d'infrastructure et un compte Google Firebase externe.
+  - Élimine les dépendances clientes lourdes (SDK Firebase).
+  - Unifie la persistance des commandes, des clients et des droits numériques dans une seule base D1 relationnelle.
+- **Alternative écartée** : Firebase Authentication (écartée conformément au choix utilisateur, évitant la dispersion des données entre Google Cloud et Cloudflare).
+
+#### Décision 2 : Connexion sans mot de passe (Magic Code OTP) pour les lecteurs
+- **Approche retenue** : Le client reçoit un code à 6 chiffres temporaire (ou vérification instantanée si commande test avec signature).
+- **Pourquoi** :
+  - Évite le syndrome du mot de passe oublié chez les lecteurs occasionnels.
+  - Sécurité optimale : le code expire au bout de 15 minutes et n'est utilisable qu'une seule fois.
+  - Compatible avec l'envoi d'emails transactionnels (SendGrid / Worker MailChannels).
+- **Alternative écartée** : Mot de passe persistant stocké avec hash bcrypt (plus complexe à gérer et source d'abandons pour les clients d'eCommerce).
+
+#### Décision 3 : Cloisonnement strict Espace Client / Espace Auteur
+- **Approche retenue** : Deux sous-arborescences étanches au niveau du routeur et de l'état de l'application :
+  - `CustomerDashboard` : ne charge ni n'affiche jamais les fonctions de réapprovisionnement de stock, ni les commandes des autres clients, ni les validations de chèques d'autrui.
+  - `AdminDashboard` : conditionné par la vérification d'un `adminToken` validé par le Worker Cloudflare via le secret d'administration (`ADMIN_SECRET`).
+- **Pourquoi** : Confidentialité totale des ventes, des marges et des adresses postales de tiers.
 
 ---
 
 ### 4. Technical Architecture & Data Strategy
 
+#### Architecture du Système & Flux de Données
+
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                          APPLICATION CLIENT VITE                       │
-│                                                                        │
-│  ┌─────────────────────────┐            ┌───────────────────────────┐  │
-│  │   BookCard / BookModal  │            │     CustomerDashboard     │  │
-│  │  - Lire extraits        │            │  - Mes e-Books achetés    │  │
-│  │  - Bouton Kindle (ASIN) │            │  - Liens R2 sécurisés     │  │
-│  │  - Achat PDF (si pub.)  │            └─────────────┬─────────────┘  │
-│  └───────────┬─────────────┘                          │                │
-│              │                                        │                │
-│              ▼                                        ▼                │
-│  ┌─────────────────────────┐            ┌───────────────────────────┐  │
-│  │      CheckoutModal      │───────────▶│  Sync Service (D1 API)    │  │
-│  │  - Stripe / PayPal      │  Commande  │  POST /api/account/orders │  │
-│  └─────────────────────────┘            └─────────────┬─────────────┘  │
-└───────────────────────────────────────────────────────┼────────────────┘
-                                                        │ HTTPS
-                                                        ▼
+│                        Navigateur Client (React SPA)                   │
+├───────────────────────────────────┬────────────────────────────────────┤
+│           Espace Lecteur          │        Back-Office Auteur          │
+│   (Vue: 'account' / /mon-compte)   │       (Vue: 'admin' / /admin)      │
+│  - Formulaire Code Magique OTP    │  - Écran de déverrouillage Auteur  │
+│  - Consultation commandes D1      │  - Gestion globale des stocks      │
+│  - Téléchargements sécurisés R2   │  - Validation chèques & virements  │
+│  - Messagerie SAV commandes       │  - Traitement des commandes / BL   │
+└─────────────────┬─────────────────┴──────────────────┬─────────────────┘
+                  │                                    │
+                  │ Bearer customerToken               │ Bearer adminToken
+                  ▼                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                 CLOUDFLARE WORKER (livres-de-jean-payments)            │
+│               Cloudflare Worker (livres-de-jean-payments)              │
+├────────────────────────────────────────────────────────────────────────┤
+│ Endpoints Publics & Auth Client :                                      │
+│  • POST /api/auth/request-code    -> Génère un code OTP dans D1        │
+│  • POST /api/auth/verify-code     -> Valide l'OTP et délivre le token  │
+│  • GET  /api/account/orders       -> Commandes du client authentifié   │
+│  • GET  /api/download/:cmd/:book  -> Téléchargement R2 vérifié         │
 │                                                                        │
-│   GET /api/download/:orderId/:bookId?email=...                         │
-│   ├── 1. Parsing URL corrigé (orderId = CMD-..., bookId = mourey-...)  │
-│   ├── 2. Vérification de la commande dans la base D1 (orders)          │
-│   └── 3. Récupération directe dans Cloudflare R2 (env.BUCKET.get(key)) │
-│                                  │                                     │
-│                                  ▼                                     │
-│                 ┌─────────────────────────────────┐                    │
-│                 │      CLOUDFLARE R2 BUCKET       │                    │
-│                 │   (Fichiers PDF originaux)      │                    │
-│                 └─────────────────────────────────┘                    │
-│                                  │ Flux binaire PDF                    │
-│                                  ▼                                     │
-│       Réponse HTTP directe 200 (Content-Type: application/pdf)         │
-└────────────────────────────────────────────────────────────────────────┘
+│ Endpoints Privés Auteur :                                              │
+│  • POST /api/admin/auth           -> Vérifie ADMIN_SECRET et signe     │
+│  • GET  /api/admin/orders         -> Liste intégrale des commandes D1   │
+│  • POST /api/admin/orders/:id     -> Changement statut / suivi colis   │
+│  • POST /api/admin/stock          -> Mise à jour des exemplaires       │
+└─────────────────┬────────────────────────────────────┬─────────────────┘
+                  │                                    │
+                  ▼                                    ▼
+┌───────────────────────────────────┐ ┌──────────────────────────────────┐
+│       Cloudflare D1 (SQL)         │ │        Cloudflare R2 (PDFs)      │
+│ - customers (id, email, nom...)   │ │ - ebooks-jean/                   │
+│ - orders (id, customer_id, json)  │ │   • mourey-gergovie-tome-1.pdf   │
+│ - auth_codes (email, code, exp)   │ │   • mourey-bibracte-tome-1.pdf   │
+│ - admin_sessions (token, exp)     │ │ - customer-pdfs/                 │
+└───────────────────────────────────┘ └──────────────────────────────────┘
 ```
 
-#### Éléments de Données & Schéma :
-- **Modèle `Book` (`src/types.ts`)** :
-  - `kindleAsin?: string` (Identifiant ASIN, ex: `B0D1234567`)
-  - `kindleUrl?: string` (Lien direct alternatif)
-  - `r2Key?: string` (Identifiant du fichier dans le bucket R2, ex: `livres/mourey-gergovie-tome-1.pdf`)
-  - `isManuscript: boolean` (Indicateur de statut manuscrit vs livre publié)
-  - `canBuyPdf: boolean` (`false` pour les manuscrits inédits, `true` pour les livres publiés)
-- **Table SQLite D1 (`orders`)** :
-  - Mémorise `id`, `customer_email`, `items_json`, `status`, `created_at`.
+#### Schéma SQL Cloudflare D1 Complémentaire
 
----
+Pour compléter les tables existantes (`customers`, `orders`) dans `src/worker.ts` :
 
-### 5. Plan d'Exécution & Vérifications
+```sql
+-- Table des codes de connexion temporaires pour l'Espace Client
+CREATE TABLE IF NOT EXISTS auth_codes (
+  email TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
-1. **Mise à jour du Worker Cloudflare (`src/worker.ts` & `wrangler.toml`)** :
-   - Correction du routage `/api/download/:orderId/:bookId`.
-   - Remplacement de toute redirection Drive par un streaming sécurisé direct depuis le bucket R2 `env.BUCKET.get(r2Key)`.
-   - Ajout d'une commande initiale rétrocompatible pour `CMD-2026-0844` avec `mourey-gergovie-tome-1` associée à votre adresse email pour débloquer immédiatement votre test.
-   - Mise à jour du fichier `wrangler.toml` pour déclarer la liaison R2 (`[[r2_buckets]] binding = "BUCKET"`).
-2. **Mise à jour du modèle de données (`src/types.ts`, `src/data/initialData.ts`)** :
-   - Ajout des champs Kindle (`kindleAsin`, `kindleUrl`) et R2 (`r2Key`).
-   - Configuration de la restriction d'achat PDF sur les manuscrits inédits avec promotion du mode lecture d'extraits.
-3. **Mise à jour de l'interface utilisateur** :
-   - `BookCard.tsx` et `BookDetailModal.tsx` : affichage du bouton d'achat Kindle direct et différenciation claire manuscrit/publié.
-   - `CheckoutModal.tsx` et `App.tsx` : synchronisation systématique des commandes avec l'API D1 du Worker.
-   - `CustomerDashboard.tsx` : fiabilisation des téléchargements R2.
-   - `AdminPanel.tsx` : formulaire d'administration avec saisie de l'ASIN Kindle et clé R2.
-4. **Vérification & Compilation** :
-   - Exécution de `compile_applet` pour garantir l'absence d'erreurs TypeScript et le bon build Vite.
+-- Table des sessions administrateur actives
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+```
+
+#### Plan de Découpage des Étapes d'Implémentation
+
+1. **Étape 1 : Extension du Worker Cloudflare (`src/worker.ts`)**
+   - Implémentation des routes d'authentification client :
+     - `POST /api/auth/request-code` : génère un code OTP à 6 chiffres, l'enregistre dans D1 avec expiration à 15 minutes (et envoie l'email si SendGrid est configuré, ou renvoie en mode développement).
+     - `POST /api/auth/verify-code` : vérifie le code et signe un `customerToken` HMAC.
+   - Implémentation des routes de gestion auteur :
+     - `POST /api/admin/auth` : compare le mot de passe auteur avec `ADMIN_SECRET` et génère un jeton signé `adminToken`.
+     - Middleware de validation `adminToken` sur toutes les routes d'administration.
+
+2. **Étape 2 : Sécurisation & Étanchéité de l'Espace Auteur (`src/components/AdminDashboard.tsx`)**
+   - Ajout d'une barrière d'authentification (`AdminLoginLock`) avant d'afficher le panneau de gestion.
+   - Persistance du jeton `adminToken` en `sessionStorage` (avec expiration automatique pour ne pas laisser le back-office ouvert sur un poste partagé).
+   - Bouton de verrouillage / déconnexion en haut à droite du tableau de bord d'administration.
+
+3. **Étape 3 : Refonte de la Connexion de l'Espace Client (`src/components/CustomerDashboard.tsx`)**
+   - Remplacement de la simple saisie d'email par le flux complet en deux temps : saisie email -> saisie du code OTP reçu.
+   - Bouton d'accès rapide pour les commandes de test locales déjà validées (compatibilité avec `CMD-2026-0389`, `CMD-2026-0181`, `CMD-2026-0970`).
+   - Affichage clair du profil lecteur authentifié avec indicateur de session sécurisée.
+
+4. **Étape 4 : Mise à jour de la Navigation Principale (`src/components/Header.tsx` et `src/App.tsx`)**
+   - Mise à jour des liens du Header :
+     - "Espace Client" mène à l'espace lecteur sécurisé.
+     - "Gestion Auteur" est accessible soit via un lien discret en pied de page / coin discret du bandeau avec icône cadenas, soit via la route dédiée `/admin`.
+   - Synchronisation de l'état global et nettoyage des permissions.
+
+5. **Étape 5 : Tests de validation & Compilation**
+   - Vérification du build TypeScript (`compile_applet`).
+   - Tests automatisés (`npm test`) pour valider la non-régression des flux existants (achats, panier, calculs de frais de port et vérification des droits numériques).

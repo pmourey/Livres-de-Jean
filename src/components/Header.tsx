@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, User, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, User, ShieldCheck, Lock } from 'lucide-react';
 
 interface HeaderProps {
   cartCount: number;
@@ -65,14 +65,14 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('admin')}
-            title="Accès Espace Auteur & Gestion"
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors ${
+            title="Espace Auteur & Gestion Commerciale (Accès Protégé)"
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors border ${
               currentView === 'admin'
-                ? 'bg-stone-800 text-stone-100'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                ? 'bg-stone-900 text-amber-400 border-stone-800'
+                : 'text-stone-600 hover:text-stone-900 border-stone-200/80 hover:bg-stone-100/60'
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
+            <Lock className="w-3.5 h-3.5" />
             <span className="whitespace-nowrap">Gestion Auteur</span>
           </button>
 

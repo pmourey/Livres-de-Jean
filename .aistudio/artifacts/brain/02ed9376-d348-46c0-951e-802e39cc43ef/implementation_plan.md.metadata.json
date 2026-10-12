@@ -1,6 +1,6 @@
 {
-  "summary": "Plan révisé : Téléchargement sécurisé exclusivement via Cloudflare R2 (sans redirection Google Drive), synchronisation D1, protection des droits d'auteur des manuscrits et liens Amazon Kindle ASIN.",
-  "updatedAt": "2026-10-12T17:09:07.682560338Z",
+  "summary": "Plan d'architecture et d'implémentation pour le système d'authentification Cloudflare D1 avec Magic Code OTP pour l'Espace Client, et sécurisation hermétique du Back-Office Gestion Auteur avec clé d'accès et session administrateur.",
+  "updatedAt": "2026-10-12T22:04:32.499316586Z",
   "requestFeedback": true,
   "userFacing": true
 }
