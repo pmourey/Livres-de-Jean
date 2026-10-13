@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CartItem, ShippingMethodId, PaymentMethodType, RelayPoint, Order, UserAccount, CustomerAddress } from '../types';
 import { RelayPointPicker } from './RelayPointPicker';
-import { INITIAL_RELAY_POINTS, AUTHOR_INFO } from '../data/initialData';
+import { AUTHOR_INFO } from '../data/initialData';
 import { PAYPAL_PAYMENT_LINK, PAYMENTS_API_BASE, STRIPE_PAYMENT_LINK } from '../config/commerce';
 import { 
   X, Check, Lock, ShieldCheck, CreditCard, ArrowRight, ArrowLeft, 
@@ -46,7 +46,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Step 2: Shipping
   const [shippingMethod, setShippingMethod] = useState<ShippingMethodId>('colissimo_standard');
-  const [selectedRelay, setSelectedRelay] = useState<RelayPoint | undefined>(INITIAL_RELAY_POINTS[0]);
+  const [selectedRelay, setSelectedRelay] = useState<RelayPoint | undefined>(undefined);
 
   // Step 3: Payment
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('stripe_card');
@@ -534,7 +534,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                         {shippingMethod === 'point_relais' && (
                           <RelayPointPicker
-                            relayPoints={INITIAL_RELAY_POINTS}
                             selectedPoint={selectedRelay}
                             onSelect={setSelectedRelay}
                             defaultPostalCode={address.postalCode}

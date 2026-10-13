@@ -8,7 +8,7 @@ import {
   Book, CartItem, Order, ClaimTicket, UserAccount, BookFormat 
 } from './types';
 import { 
-  INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_CLAIMS, DEMO_CUSTOMER, AUTHOR_INFO 
+  INITIAL_BOOKS, DEMO_CUSTOMER, AUTHOR_INFO 
 } from './data/initialData';
 import { Header } from './components/Header';
 import { CatalogSection } from './components/CatalogSection';
@@ -131,19 +131,33 @@ export default function App() {
               quantity: typeof i.quantity === 'number' ? i.quantity : 1
             }))
           }));
-          const missingInitial = INITIAL_ORDERS.filter((io) => !loaded.some((lo: any) => lo.id === io.id));
-          return [...missingInitial, ...loaded];
+          // Filter out legacy demo seed orders if saved previously in localStorage
+          const legacySeedIds = new Set([
+            'CMD-2026-0389', 'CMD-2026-0570', 'CMD-2026-0844', 'CMD-2026-0181',
+            'CMD-2026-0970', 'CMD-2026-0210', 'CMD-2026-0182', 'CMD-2026-0195', 'CMD-2026-0201'
+          ]);
+          return loaded.filter((lo: any) => !legacySeedIds.has(lo.id));
         }
       } catch (e) {
         // fallback
       }
     }
-    return INITIAL_ORDERS;
+    return [];
   });
 
   const [claims, setClaims] = useState<ClaimTicket[]>(() => {
     const saved = localStorage.getItem('emile_mourey_claims');
-    return saved ? JSON.parse(saved) : INITIAL_CLAIMS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c: any) => c.id !== 'SAV-2026-0041');
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [];
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount>(() => {

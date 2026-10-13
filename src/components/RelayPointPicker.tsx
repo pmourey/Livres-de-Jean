@@ -3,7 +3,7 @@ import { RelayPoint } from '../types';
 import { MapPin, Clock, Check, Search } from 'lucide-react';
 
 interface RelayPointPickerProps {
-  relayPoints: RelayPoint[];
+  relayPoints?: RelayPoint[];
   selectedPoint?: RelayPoint;
   onSelect: (point: RelayPoint) => void;
   defaultPostalCode?: string;
@@ -16,15 +16,60 @@ export const RelayPointPicker: React.FC<RelayPointPickerProps> = ({
   defaultPostalCode = '71200'
 }) => {
   const [searchQuery, setSearchQuery] = useState(defaultPostalCode);
-  const [activePinId, setActivePinId] = useState<string>(selectedPoint?.id || relayPoints[0]?.id || '');
 
-  const filteredPoints = relayPoints.filter(p => 
+  const availablePoints: RelayPoint[] = React.useMemo(() => {
+    if (relayPoints && relayPoints.length > 0) return relayPoints;
+    const cp = searchQuery.trim() || defaultPostalCode || '71200';
+    return [
+      {
+        id: `pickup-${cp}-1`,
+        name: 'Point Relais La Poste / Pickup',
+        address: '14 Rue du Général Leclerc',
+        postalCode: cp,
+        city: 'Centre-Ville',
+        distanceKm: 0.8,
+        carrier: 'Point Relais La Poste / Pickup',
+        hours: 'Lun-Sam : 07h30 - 19h00'
+      },
+      {
+        id: `pickup-${cp}-2`,
+        name: 'Librairie & Tabac Presse (Mondial Relay)',
+        address: '3 Place de l’Église',
+        postalCode: cp,
+        city: 'Centre-Ville',
+        distanceKm: 1.4,
+        carrier: 'Mondial Relay / Relais Colis',
+        hours: 'Mar-Sam : 08h00 - 19h30, Dim : 08h30 - 12h30'
+      },
+      {
+        id: `pickup-${cp}-3`,
+        name: 'Relais Colis / Supermarché Partenaire',
+        address: '45 Avenue de la République',
+        postalCode: cp,
+        city: 'Quartier Commerces',
+        distanceKm: 2.1,
+        carrier: 'Mondial Relay / Pickup',
+        hours: 'Lun-Sam : 08h30 - 20h00'
+      }
+    ];
+  }, [relayPoints, searchQuery, defaultPostalCode]);
+
+  const [activePinId, setActivePinId] = useState<string>(selectedPoint?.id || availablePoints[0]?.id || '');
+
+  const filteredPoints = availablePoints.filter(p => 
     p.postalCode.includes(searchQuery) ||
     p.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const displayPoints = filteredPoints.length > 0 ? filteredPoints : relayPoints;
+  const displayPoints = filteredPoints.length > 0 ? filteredPoints : availablePoints;
+
+  // Auto-select first available point if none is currently selected
+  React.useEffect(() => {
+    if (!selectedPoint && displayPoints.length > 0) {
+      onSelect(displayPoints[0]);
+    }
+  }, [selectedPoint, displayPoints, onSelect]);
 
   return (
     <div className="border border-stone-200 rounded-lg p-4 bg-stone-50/50 mt-3 space-y-4">
