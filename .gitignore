@@ -8,3 +8,4 @@ coverage/
 !.env.prod
 /.env.prod
 /.env.local
+.dev.vars

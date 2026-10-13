@@ -388,6 +388,32 @@ export default function App() {
     localStorage.removeItem('emile_mourey_customer_token');
   };
 
+  // Helper to send shipping/delivery notification emails to customer
+  const notifyShippingEmail = async (order: Order, status: 'expediee' | 'livree', trackingNumber?: string) => {
+    try {
+      await fetch(`${PAYMENTS_API_BASE}/api/account/orders/notify-shipping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, status, trackingNumber })
+      });
+    } catch (e) {
+      console.warn('Failed to send shipping email notification:', e);
+    }
+  };
+
+  // Helper to send claim/SAV email notifications to author and buyer
+  const notifyClaimEmail = async (type: 'new_claim' | 'author_reply', claim: ClaimTicket, replyText?: string) => {
+    try {
+      await fetch(`${PAYMENTS_API_BASE}/api/account/claims/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, claim, replyText })
+      });
+    } catch (e) {
+      console.warn('Failed to send claim email notification:', e);
+    }
+  };
+
   // Admin actions: update status
   const handleUpdateOrderStatus = (orderId: string, newStatus: Order['orderStatus'], trackingNumber?: string) => {
     setOrders((prev) =>
@@ -419,6 +445,9 @@ export default function App() {
           invoiceNumber: newStatus === 'livree' && !o.invoiceNumber ? `FAC-${o.id.replace('CMD-', '')}` : o.invoiceNumber
         };
         void syncOrderToD1(updated);
+        if (newStatus === 'expediee' || newStatus === 'livree') {
+          void notifyShippingEmail(updated, newStatus, trackingNumber);
+        }
         return updated;
       })
     );
@@ -500,13 +529,14 @@ export default function App() {
     };
 
     setClaims((prev) => [newClaim, ...prev]);
+    void notifyClaimEmail('new_claim', newClaim);
   };
 
   const handleSendClaimMessage = (claimId: string, text: string) => {
     setClaims((prev) =>
       prev.map((c) => {
         if (c.id !== claimId) return c;
-        return {
+        const updatedClaim: ClaimTicket = {
           ...c,
           status: 'en_cours',
           messages: [
@@ -520,6 +550,8 @@ export default function App() {
             }
           ]
         };
+        void notifyClaimEmail('new_claim', updatedClaim);
+        return updatedClaim;
       })
     );
   };
@@ -528,7 +560,7 @@ export default function App() {
     setClaims((prev) =>
       prev.map((c) => {
         if (c.id !== claimId) return c;
-        return {
+        const updatedClaim: ClaimTicket = {
           ...c,
           status: markResolved ? 'resolu' : 'en_cours',
           messages: [
@@ -542,6 +574,8 @@ export default function App() {
             }
           ]
         };
+        void notifyClaimEmail('author_reply', updatedClaim, replyText);
+        return updatedClaim;
       })
     );
   };

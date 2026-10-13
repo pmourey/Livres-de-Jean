@@ -219,14 +219,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) {
         setTestEmailStatus('Email de test Gmail envoyé avec succès à philippe.mourey@gmail.com !');
+      } else if (res.status === 404) {
+        setTestEmailStatus("Le code du Worker a été mis à jour avec la route de test, mais votre Worker Cloudflare distant n'a pas encore été redéployé. Exécutez 'npx wrangler deploy' dans votre terminal pour activer l'envoi en ligne.");
       } else {
-        setTestEmailStatus(`Info SMTP : ${data?.error || 'Serveur distant inaccessible en mode prévisualisation locale'}`);
+        setTestEmailStatus(`Info SMTP : ${data?.error || `Erreur serveur (${res.status})`}`);
       }
     } catch {
-      setTestEmailStatus('Envoi simulé : Vos paramètres SMTP smtp.gmail.com:465 sont prêts à être déployés sur votre Worker.');
+      setTestEmailStatus("Connexion au Worker impossible. Vérifiez que votre Worker est actif ou lancez 'npx wrangler deploy'.");
     } finally {
       setIsTestingEmail(false);
-      setTimeout(() => setTestEmailStatus(null), 8000);
+      setTimeout(() => setTestEmailStatus(null), 10000);
     }
   };
 

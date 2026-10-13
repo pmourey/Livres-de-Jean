@@ -233,7 +233,6 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [isOtpLoading, setIsOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [otpSuccessMsg, setOtpSuccessMsg] = useState('');
-  const [devDemoCode, setDevDemoCode] = useState<string | null>(null);
 
   const handleRequestOtp = async (e?: React.FormEvent, directEmail?: string) => {
     if (e) e.preventDefault();
@@ -255,19 +254,12 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
       const data = await response.json().catch(() => null);
       if (response.ok && data?.ok) {
         setIsOtpSent(true);
-        setOtpSuccessMsg(data.message || 'Un code de confirmation vous a été envoyé.');
-        if (data.demoCode) {
-          setDevDemoCode(data.demoCode);
-        }
+        setOtpSuccessMsg(data.message || 'Un code de confirmation à 6 chiffres vous a été envoyé par email.');
       } else {
-        setIsOtpSent(true);
-        setDevDemoCode('123456');
-        setOtpSuccessMsg('Code temporaire généré (mode test).');
+        setOtpError(data?.error || 'Impossible d\'envoyer le code d\'accès. Veuillez vérifier votre adresse email.');
       }
     } catch {
-      setIsOtpSent(true);
-      setDevDemoCode('123456');
-      setOtpSuccessMsg('Code temporaire généré (serveur Cloudflare local/secours).');
+      setOtpError('Serveur de messagerie momentanément indisponible. Veuillez vérifier votre connexion ou réessayer.');
     } finally {
       setIsOtpLoading(false);
     }
@@ -277,7 +269,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
     if (e) e.preventDefault();
     const codeToVerify = (customCode || magicCode).trim();
     if (!codeToVerify) {
-      setOtpError('Veuillez saisir le code reçu.');
+      setOtpError('Veuillez saisir le code reçu par email.');
       return;
     }
 
@@ -306,38 +298,9 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         return;
       }
 
-      if (codeToVerify === '123456' || codeToVerify === devDemoCode) {
-        const dummyToken = `demo_token_${btoa(magicEmail)}_${Date.now()}`;
-        if (onLogin) {
-          await onLogin({
-            email: magicEmail,
-            firstName: 'Philippe',
-            lastName: 'Mourey',
-            token: dummyToken
-          });
-        }
-        setIsOtpSent(false);
-        setMagicCode('');
-        return;
-      }
-
-      setOtpError(data?.error || 'Code incorrect ou expiré.');
+      setOtpError(data?.error || 'Code de confirmation incorrect ou expiré. Veuillez vérifier votre boîte email.');
     } catch {
-      if (codeToVerify === '123456' || codeToVerify === devDemoCode) {
-        const dummyToken = `demo_token_${btoa(magicEmail)}_${Date.now()}`;
-        if (onLogin) {
-          await onLogin({
-            email: magicEmail,
-            firstName: 'Philippe',
-            lastName: 'Mourey',
-            token: dummyToken
-          });
-        }
-        setIsOtpSent(false);
-        setMagicCode('');
-        return;
-      }
-      setOtpError('Erreur de validation du code.');
+      setOtpError('Erreur de validation du code. Veuillez réessayer.');
     } finally {
       setIsOtpLoading(false);
     }
@@ -597,26 +560,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       setMagicCode(e.target.value.replace(/[^0-9]/g, ''));
                       if (otpError) setOtpError('');
                     }}
-                    placeholder="123456"
+                    placeholder="849201"
                     className="w-full pl-9 pr-3 py-2.5 bg-stone-50 border border-stone-300 rounded text-sm text-stone-900 tracking-widest text-center font-mono placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-[#8B1E2D] focus:bg-white transition-all"
                     required
                     autoFocus
                   />
                 </div>
-              </div>
-
-              {devDemoCode && (
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900 flex items-center justify-between">
-                  <span>Code de démonstration généré : <strong className="font-mono tracking-wider">{devDemoCode}</strong></span>
+                <div className="flex justify-between items-center mt-1.5 px-0.5">
+                  <span className="text-[11px] text-stone-500">
+                    Code reçu sur <strong className="text-stone-700 font-mono">{magicEmail}</strong>
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setMagicCode(devDemoCode)}
-                    className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-semibold text-[11px]"
+                    disabled={isOtpLoading}
+                    onClick={() => handleRequestOtp(undefined, magicEmail)}
+                    className="text-[11px] text-[#8B1E2D] hover:underline font-medium disabled:opacity-50"
                   >
-                    Remplir
+                    Renvoyer un code
                   </button>
                 </div>
-              )}
+              </div>
 
               {otpError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-700 flex items-center gap-2">

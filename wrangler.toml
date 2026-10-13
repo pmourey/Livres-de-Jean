@@ -24,9 +24,16 @@ STRIPE_CANCEL_URL = "https://pmourey.github.io/Livres-de-Jean/?payment=stripe-ca
 PAYPAL_RETURN_URL = "https://livres-de-jean-payments.super-violet-dc40.workers.dev/checkout/paypal/complete"
 PAYPAL_SUCCESS_URL = "https://pmourey.github.io/Livres-de-Jean/"
 
-# Configuration SMTP Gmail pour envois de codes OTP et récapitulatifs de commande
+# Configuration SMTP Gmail pour envois de codes OTP, notifications de commandes et réclamations
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = "465"
 GMAIL_FULLNAME = "Philippe Mourey"
 GMAIL_USER = "philippe.mourey@gmail.com"
-# Recommandation : en production publique, définir via 'npx wrangler secret put GMAIL_APP_PWD'
+# Pour GMAIL_APP_PWD (mot de passe d'application Google à 16 caractères) :
+# Option 1 (Recommandée & sécurisée pour production) :
+#   Exécuter : npx wrangler secret put GMAIL_APP_PWD
+# Option 2 (Développement local avec wrangler dev) :
+#   Créer un fichier .dev.vars contenant : GMAIL_APP_PWD="votre mot de passe"
+# Option 3 (Dépôt strictement privé) :
+#   Décommenter la variable ci-dessous :
+# GMAIL_APP_PWD = "xxxxx"

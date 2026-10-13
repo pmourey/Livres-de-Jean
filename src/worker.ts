@@ -49,101 +49,6 @@ export interface Env {
   GMAIL_APP_PWD?: string;
 }
 
-const KNOWN_SEED_ORDERS: Record<string, {
-  customerEmail: string;
-  firstName: string;
-  lastName: string;
-  paymentStatus?: string;
-  orderStatus?: string;
-  items: Array<{ bookId: string; title: string; format: string }>;
-}> = {
-  'CMD-2026-0389': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    paymentStatus: 'paye',
-    orderStatus: 'livree',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      }
-    ]
-  },
-  'CMD-2026-0844': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      }
-    ]
-  },
-  'CMD-2026-0210': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      },
-      {
-        bookId: 'mourey-bibracte-tome-2-bouclier-eduen',
-        title: 'Histoire de Bibracte : Tome 2 (Le Bouclier Éduen)',
-        format: 'numerique_pdf'
-      }
-    ]
-  },
-  'CMD-2026-0570': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    paymentStatus: 'paye',
-    orderStatus: 'livree',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      }
-    ]
-  },
-  'CMD-2026-0181': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    paymentStatus: 'paye',
-    orderStatus: 'livree',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      }
-    ]
-  },
-  'CMD-2026-0970': {
-    customerEmail: 'philippe.mourey@gmail.com',
-    firstName: 'Philippe',
-    lastName: 'Mourey',
-    paymentStatus: 'paye',
-    orderStatus: 'livree',
-    items: [
-      {
-        bookId: 'mourey-gergovie-tome-1',
-        title: 'Histoire de Gergovie : Tome 1',
-        format: 'numerique_pdf'
-      }
-    ]
-  }
-};
-
 async function ensureTables(db?: D1Database) {
   if (!db) return;
   try {
@@ -191,7 +96,7 @@ const json = (data: unknown, init?: ResponseInit) =>
       'content-type': 'application/json; charset=utf-8',
       'access-control-allow-origin': '*',
       'access-control-allow-methods': 'GET,POST,OPTIONS',
-      'access-control-allow-headers': 'Content-Type'
+      'access-control-allow-headers': 'Content-Type, Authorization'
     },
     ...init
   });
@@ -199,7 +104,7 @@ const json = (data: unknown, init?: ResponseInit) =>
 const corsHeaders = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,OPTIONS',
-  'access-control-allow-headers': 'Content-Type'
+  'access-control-allow-headers': 'Content-Type, Authorization'
 };
 
 const readTotal = async (request: Request) => {
@@ -453,11 +358,79 @@ async function sendOtpEmail(env: Env, toEmail: string, code: string) {
   return { success: false, error: 'Aucun moyen d\'envoi actif' };
 }
 
+// In-memory cache for OTP codes (supplements D1 for preview/local environments)
+const MEMORY_AUTH_CODES = new Map<string, { code: string; expiresAt: number }>();
+
+async function sendAuthorNewOrderAlertEmail(env: Env, order: any) {
+  const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
+  const orderId = order.id || 'CMD-XXXX';
+  const total = typeof order.total === 'number' ? order.total.toFixed(2) : order.total;
+  const customer = order.customer || {};
+  const customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Client';
+
+  const hasPhysicalBooks = (order.items || []).some((i: any) => i.format !== 'numerique_pdf');
+  const dedications = (order.items || []).filter((i: any) => i.dedicationRequested);
+
+  const subject = `🔔 [COMMANDE À EXPÉDIER] ${orderId} - ${customerName} (${total} €)`;
+
+  const itemsList = (order.items || []).map((item: any) => `
+    <li style="margin-bottom: 8px;">
+      <strong>${item.quantity || 1}× ${item.title || 'Livre'}</strong> 
+      <span style="font-size: 11px; padding: 2px 6px; background-color: #E7E2D9; border-radius: 4px;">
+        ${item.format === 'numerique_pdf' ? 'eBook PDF' : item.format === 'pack_duo' ? 'Livre Papier + PDF' : 'Livre Papier'}
+      </span>
+      ${item.dedicationRequested ? `<br/><span style="color: #8B1E2D; font-size: 12px;">✍️ Dédicace : <em>"${item.dedicationRecipient || 'Sans nom'}"</em> ${item.dedicationMessage ? `(Message : ${item.dedicationMessage})` : ''}</span>` : ''}
+    </li>
+  `).join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #D6CEBE; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+      <div style="border-bottom: 2px solid #8B1E2D; padding-bottom: 12px; margin-bottom: 18px;">
+        <h1 style="font-family: Georgia, serif; font-size: 20px; margin: 0; color: #8B1E2D;">Éditions Émile Mourey · Notification Auteur</h1>
+        <p style="font-size: 12px; margin: 4px 0 0 0; color: #78716C;">Nouvelle commande enregistrée sur votre librairie</p>
+      </div>
+
+      <div style="background-color: ${hasPhysicalBooks ? '#FFFBEB' : '#F0FDF4'}; border: 1px solid ${hasPhysicalBooks ? '#FDE68A' : '#BBF7D0'}; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
+        <strong style="color: ${hasPhysicalBooks ? '#92400E' : '#166534'}; font-size: 13px;">
+          ${hasPhysicalBooks ? '📦 Ouvrage papier à préparer et expédier' : '⚡ Commande 100% numérique (accès débloqué automatiquement)'}
+        </strong>
+      </div>
+
+      <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #2B1810;">Coordonnées de l'acheteur :</h3>
+      <div style="background-color: #FFFFFF; border: 1px solid #E7E2D9; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px; line-height: 1.5;">
+        <p style="margin: 0;"><strong>Nom :</strong> ${customerName}</p>
+        <p style="margin: 4px 0 0 0;"><strong>Email :</strong> <a href="mailto:${customer.email}">${customer.email}</a></p>
+        ${customer.phone ? `<p style="margin: 4px 0 0 0;"><strong>Téléphone :</strong> ${customer.phone}</p>` : ''}
+        ${customer.street ? `<p style="margin: 4px 0 0 0;"><strong>Adresse postale :</strong><br/>${customer.street}<br/>${customer.postalCode || ''} ${customer.city || ''}</p>` : ''}
+      </div>
+
+      <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #2B1810;">Articles commandés :</h3>
+      <ul style="padding-left: 20px; font-size: 13px; margin: 0 0 20px 0;">
+        ${itemsList}
+      </ul>
+
+      <p style="font-size: 13px; margin: 0 0 6px 0;"><strong>Total commande :</strong> <span style="font-size: 15px; color: #8B1E2D; font-weight: bold;">${total} €</span></p>
+      <p style="font-size: 13px; margin: 0 0 20px 0;"><strong>Moyen de paiement :</strong> ${order.paymentMethod || 'Paiement en ligne'}</p>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean'}/?admin=true" style="display: inline-block; background-color: #8B1E2D; color: #FFFFFF; text-decoration: none; font-weight: bold; font-size: 13px; padding: 12px 24px; border-radius: 6px;">
+          Ouvrir le Back-Office Gestion Auteur
+        </a>
+      </div>
+    </div>
+  `;
+
+  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    return await sendGmailSmtp(env, authorEmail, subject, html);
+  }
+  return { success: false, error: 'SMTP non configuré' };
+}
+
 async function sendOrderConfirmationEmail(env: Env, order: any) {
   const customerEmail = order?.customer?.email || '';
   if (!customerEmail) return { success: false, error: 'Email client manquant' };
 
-  const customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim() || 'Cher lecteur';
+  const customerName = `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Cher lecteur';
   const orderId = order.id;
   const total = typeof order.total === 'number' ? order.total.toFixed(2) : order.total;
   const subject = `Confirmation de votre commande ${orderId} - Éditions Émile Mourey`;
@@ -467,6 +440,7 @@ async function sendOrderConfirmationEmail(env: Env, order: any) {
       <td style="padding: 10px 8px; border-bottom: 1px solid #E7E2D9;">
         <strong>${item.title || 'Livre d\'histoire'}</strong><br/>
         <span style="font-size: 12px; color: #78716C;">Format : ${item.format === 'numerique_pdf' ? 'eBook PDF (Numérique)' : item.format === 'pack_duo' ? 'Pack Livre Papier + PDF' : 'Livre Papier relié'}</span>
+        ${item.dedicationRequested ? `<br/><span style="font-size: 11px; color: #8B1E2D;">✍️ Dédicace demandée pour : ${item.dedicationRecipient || 'Vous-même'}</span>` : ''}
       </td>
       <td style="padding: 10px 8px; border-bottom: 1px solid #E7E2D9; text-align: center; font-family: monospace;">
         ${item.quantity || 1}
@@ -530,9 +504,11 @@ async function sendOrderConfirmationEmail(env: Env, order: any) {
   let clientRes: any = { success: false };
   if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
     clientRes = await sendGmailSmtp(env, customerEmail, subject, html);
-    const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
-    if (authorEmail && authorEmail !== customerEmail) {
-      await sendGmailSmtp(env, authorEmail, `[Nouvelle Commande] ${orderId} (${total} €)`, html);
+    // Alert the author as well
+    try {
+      await sendAuthorNewOrderAlertEmail(env, order);
+    } catch (authorErr) {
+      console.warn('Erreur alerte auteur nouvelle commande:', authorErr);
     }
   } else if (env.SENDGRID_API_KEY) {
     try {
@@ -556,6 +532,172 @@ async function sendOrderConfirmationEmail(env: Env, order: any) {
   }
 
   return clientRes;
+}
+
+async function sendShippingNotificationEmail(
+  env: Env,
+  order: any,
+  status: 'expediee' | 'livree',
+  trackingNumber?: string
+) {
+  const customerEmail = order?.customer?.email || '';
+  if (!customerEmail) return { success: false, error: 'Email client manquant' };
+
+  const customerName = `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Cher lecteur';
+  const orderId = order.id || 'CMD-XXXX';
+  const trackNum = trackingNumber || order.trackingNumber || '';
+
+  const isShipped = status === 'expediee';
+  const subject = isShipped
+    ? `📦 Expédition de votre commande ${orderId} - Éditions Émile Mourey`
+    : `✅ Votre commande ${orderId} est indiquée comme livrée - Éditions Émile Mourey`;
+
+  const trackingLink = trackNum
+    ? `https://www.laposte.fr/outils/suivre-vos-envois?code=${encodeURIComponent(trackNum)}`
+    : null;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E7E2D9; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+      <div style="border-bottom: 2px solid #8B1E2D; padding-bottom: 12px; margin-bottom: 20px;">
+        <h1 style="font-family: Georgia, serif; font-size: 22px; margin: 0; color: #2B1810;">Éditions Émile Mourey</h1>
+        <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #8B1E2D; margin: 4px 0 0 0; font-weight: bold;">Suivi d'Acheminement Colissimo</p>
+      </div>
+
+      <p style="font-size: 14px; line-height: 1.6;">Bonjour ${customerName},</p>
+      <p style="font-size: 14px; line-height: 1.6;">
+        ${isShipped
+          ? `Nous avons le plaisir de vous informer que Monsieur Émile Mourey a préparé votre colis et l'a remis aux services postaux pour acheminement.`
+          : `Votre colis correspondant à la commande ${orderId} a été distribué par les services postaux.`
+        }
+      </p>
+
+      <div style="background-color: #FFFFFF; border: 1px solid #E7E2D9; border-radius: 6px; padding: 16px; margin: 20px 0;">
+        <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Commande :</strong> <span style="font-family: monospace; color: #8B1E2D;">${orderId}</span></p>
+        <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Statut :</strong> <span style="color: ${isShipped ? '#1D4ED8' : '#15803D'}; font-weight: bold;">${isShipped ? 'En cours d\'acheminement' : 'Colis livré'}</span></p>
+        ${trackNum ? `
+          <p style="margin: 0 0 12px 0; font-size: 13px;"><strong>Numéro de suivi Colissimo :</strong> <span style="font-family: monospace; font-weight: bold;">${trackNum}</span></p>
+          ${trackingLink ? `
+            <a href="${trackingLink}" style="display: inline-block; background-color: #8B1E2D; color: #FFFFFF; text-decoration: none; font-size: 12px; font-weight: bold; padding: 8px 16px; border-radius: 4px;">
+              Suivre mon colis sur le site de La Poste →
+            </a>
+          ` : ''}
+        ` : ''}
+      </div>
+
+      ${order.customer?.street ? `
+        <div style="font-size: 12px; color: #78716C; margin-bottom: 20px;">
+          <strong>Adresse de destination :</strong><br/>
+          ${order.customer.street}<br/>
+          ${order.customer.postalCode || ''} ${order.customer.city || ''}
+        </div>
+      ` : ''}
+
+      <div style="background-color: #F3EFEA; padding: 14px; border-radius: 6px;">
+        <p style="margin: 0; font-size: 12px; line-height: 1.5;">
+          Vous pouvez consulter l'historique complet de votre commande et télécharger votre facture depuis votre <strong>Espace Lecteur</strong> : <br/>
+          <a href="${env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean'}/" style="color: #8B1E2D; font-weight: bold;">Se connecter à mon compte</a>
+        </p>
+      </div>
+
+      <div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
+        <p style="margin: 0;">Éditions Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
+      </div>
+    </div>
+  `;
+
+  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    return await sendGmailSmtp(env, customerEmail, subject, html);
+  }
+  return { success: false, error: 'SMTP non configuré' };
+}
+
+async function sendClaimNotificationEmail(
+  env: Env,
+  type: 'new_claim' | 'author_reply',
+  claim: any,
+  replyText?: string
+) {
+  const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
+  const customerEmail = claim?.customerEmail || '';
+  const orderId = claim?.orderId || 'CMD-XXXX';
+  const claimId = claim?.id || 'SAV';
+
+  if (type === 'new_claim') {
+    // 1. Alert the author
+    const authorSubject = `⚠️ [SAV / RÉCLAMATION] Commande ${orderId} - ${claim.subject || 'Réclamation client'}`;
+    const authorHtml = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #FCA5A5; border-radius: 8px; background-color: #FEF2F2; color: #2B1810;">
+        <h2 style="font-family: Georgia, serif; font-size: 18px; margin: 0 0 12px 0; color: #991B1B;">Nouvelle réclamation client enregistrée</h2>
+        <div style="background-color: #FFFFFF; border: 1px solid #F87171; border-radius: 6px; padding: 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5;">
+          <p style="margin: 0 0 6px 0;"><strong>Référence SAV :</strong> ${claimId}</p>
+          <p style="margin: 0 0 6px 0;"><strong>Commande :</strong> ${orderId}</p>
+          <p style="margin: 0 0 6px 0;"><strong>Client :</strong> ${claim.customerName || 'Client'} (${customerEmail})</p>
+          <p style="margin: 0 0 6px 0;"><strong>Motif :</strong> ${claim.reason || 'Autre'}</p>
+          <p style="margin: 0;"><strong>Objet :</strong> ${claim.subject || 'Sans objet'}</p>
+        </div>
+        <div style="background-color: #FFFFFF; border-left: 4px solid #DC2626; padding: 12px; margin-bottom: 20px; font-size: 13px;">
+          <strong>Message du client :</strong><br/>
+          <p style="margin: 8px 0 0 0; white-space: pre-wrap; font-style: italic;">« ${claim.messages?.[0]?.text || 'Aucun message'} »</p>
+        </div>
+        <div style="text-align: center;">
+          <a href="${env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean'}/?admin=true" style="display: inline-block; background-color: #991B1B; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: bold; padding: 10px 20px; border-radius: 6px;">
+            Répondre dans le Back-Office Auteur
+          </a>
+        </div>
+      </div>
+    `;
+
+    // 2. Reassure the customer
+    const clientSubject = `Prise en compte de votre réclamation - Commande ${orderId} - Éditions Émile Mourey`;
+    const clientHtml = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E7E2D9; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+        <h2 style="font-family: Georgia, serif; font-size: 20px; margin: 0 0 12px 0; color: #8B1E2D;">Éditions Émile Mourey · Service Lecteurs</h2>
+        <p style="font-size: 14px; line-height: 1.6;">Bonjour ${claim.customerName || 'Cher lecteur'},</p>
+        <p style="font-size: 14px; line-height: 1.6;">Votre message concernant la commande <strong>${orderId}</strong> (ticket <strong>${claimId}</strong>) a bien été transmis à Monsieur Émile Mourey.</p>
+        <p style="font-size: 14px; line-height: 1.6;">L'auteur examine personnellement chaque demande et vous apportera une réponse par email dans les meilleurs délais.</p>
+        <div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
+          <p style="margin: 0;">Éditions Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
+        </div>
+      </div>
+    `;
+
+    if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+      await sendGmailSmtp(env, authorEmail, authorSubject, authorHtml);
+      if (customerEmail) {
+        await sendGmailSmtp(env, customerEmail, clientSubject, clientHtml);
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'SMTP non configuré' };
+  } else {
+    // Author replied to claim -> notify customer
+    if (!customerEmail) return { success: false, error: 'Email client manquant' };
+    const replySubject = `💬 Réponse de l'auteur concernant votre commande ${orderId} - Éditions Émile Mourey`;
+    const replyHtml = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E7E2D9; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+        <h2 style="font-family: Georgia, serif; font-size: 20px; margin: 0 0 12px 0; color: #8B1E2D;">Éditions Émile Mourey</h2>
+        <p style="font-size: 14px; line-height: 1.6;">Bonjour ${claim.customerName || 'Cher lecteur'},</p>
+        <p style="font-size: 14px; line-height: 1.6;">Monsieur Émile Mourey a répondu à votre demande concernant la commande <strong>${orderId}</strong> :</p>
+        <div style="background-color: #FFFFFF; border-left: 4px solid #8B1E2D; padding: 14px; margin: 18px 0; font-size: 14px; line-height: 1.6; border-radius: 4px;">
+          <p style="margin: 0; white-space: pre-wrap;">${replyText || ''}</p>
+        </div>
+        <p style="font-size: 13px; line-height: 1.5;">Vous pouvez retrouver l'historique complet de cet échange et répondre directement dans votre Espace Lecteur :</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="${env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean'}/" style="display: inline-block; background-color: #8B1E2D; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: bold; padding: 10px 22px; border-radius: 6px;">
+            Accéder à mon Espace Lecteur
+          </a>
+        </div>
+        <div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
+          <p style="margin: 0;">Éditions Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
+        </div>
+      </div>
+    `;
+
+    if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+      return await sendGmailSmtp(env, customerEmail, replySubject, replyHtml);
+    }
+    return { success: false, error: 'SMTP non configuré' };
+  }
 }
 
 
@@ -716,33 +858,41 @@ export default {
         return json({ error: 'Adresse email invalide' }, { status: 400 });
       }
 
-      // Generate 6-digit OTP
+      // Generate secure 6-digit OTP
       const code = String(Math.floor(100000 + Math.random() * 900000));
-      const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+      const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes validity
 
+      // Save to D1 table
       if (env.DB) {
         await env.DB.prepare(
           'INSERT OR REPLACE INTO auth_codes (email, code, expires_at) VALUES (?, ?, ?)'
         ).bind(email, code, expiresAt).run();
       }
 
-      // Envoi de l'email avec le code de sécurité (priorité Gmail SMTP, fallback SendGrid)
+      // Keep in worker memory cache for rapid validation or local dev
+      MEMORY_AUTH_CODES.set(email, { code, expiresAt });
+
+      // Envoi du mail avec le code de sécurité via Gmail SMTP
+      let emailSent = false;
+      let emailError: string | undefined;
       try {
-        await sendOtpEmail(env, email, code);
-      } catch (mailErr) {
+        const mailRes = await sendOtpEmail(env, email, code);
+        emailSent = mailRes.success;
+        emailError = mailRes.error;
+      } catch (mailErr: any) {
         console.warn('Erreur envoi OTP:', mailErr);
+        emailError = mailErr?.message;
       }
 
       return json({
         ok: true,
-        message: 'Un code de confirmation temporaire vous a été transmis.',
-        expiresAt,
-        // Provided for instant verification in dev/demo preview environments
-        demoCode: code
+        sent: emailSent,
+        message: 'Un code de confirmation à 6 chiffres a été envoyé à votre adresse email.',
+        expiresAt
       });
     }
 
-    // Customer Auth: Verify Magic Code (OTP)
+    // Customer Auth: Verify Magic Code (OTP) - Strict verification, temporary bypasses disabled
     if (pathname === '/api/auth/verify-code' && request.method === 'POST') {
       const body = await readJson(request);
       const email = String(body?.email || '').trim().toLowerCase();
@@ -754,29 +904,36 @@ export default {
 
       let isValid = false;
 
-      // Master fallback code for test environments or seed accounts
-      if (code === '123456' || code === '000000') {
-        isValid = true;
-      } else if (env.DB) {
+      // 1. Verify against Cloudflare D1
+      if (env.DB) {
         const stored = await env.DB.prepare(
           'SELECT code, expires_at FROM auth_codes WHERE email = ?'
         ).bind(email).first<{ code: string; expires_at: number }>();
 
         if (stored && stored.code === code && stored.expires_at > Date.now()) {
           isValid = true;
-          // Clean up used code
+          // Clean up single-use code immediately
           await env.DB.prepare('DELETE FROM auth_codes WHERE email = ?').bind(email).run();
         }
       }
 
+      // 2. Fallback to memory cache if DB is in transition or local worker dev
       if (!isValid) {
-        return json({ error: 'Code de sécurité invalide ou expiré.' }, { status: 400 });
+        const mem = MEMORY_AUTH_CODES.get(email);
+        if (mem && mem.code === code && mem.expiresAt > Date.now()) {
+          isValid = true;
+          MEMORY_AUTH_CODES.delete(email);
+        }
+      }
+
+      if (!isValid) {
+        return json({ error: 'Code de sécurité invalide ou expiré. Veuillez vérifier vos emails.' }, { status: 400 });
       }
 
       const customerId = customerIdFromEmail(email);
       let customerName = { firstName: 'Lecteur', lastName: '' };
 
-      if (KNOWN_SEED_ORDERS['CMD-2026-0389'] && email === 'philippe.mourey@gmail.com') {
+      if (email === 'philippe.mourey@gmail.com') {
         customerName = { firstName: 'Philippe', lastName: 'Mourey' };
       }
 
@@ -939,6 +1096,46 @@ export default {
       }
     }
 
+    // Shipping & Delivery email notification endpoint
+    if (pathname === '/api/account/orders/notify-shipping' && request.method === 'POST') {
+      const body = await readJson(request);
+      const order = body?.order;
+      const status = body?.status as 'expediee' | 'livree';
+      const trackingNumber = body?.trackingNumber;
+
+      if (!order?.customer?.email) {
+        return json({ error: 'Données de commande incomplètes (email manquant)' }, { status: 400 });
+      }
+
+      try {
+        const result = await sendShippingNotificationEmail(env, order, status || 'expediee', trackingNumber);
+        return json({ ok: true, sent: result.success, error: result.error });
+      } catch (err: any) {
+        console.warn('Erreur envoi notification expédition:', err);
+        return json({ ok: false, error: err?.message || 'Erreur d\'envoi email' }, { status: 500 });
+      }
+    }
+
+    // Claims / SAV notification endpoint (alerts author on new ticket, alerts customer on reply)
+    if (pathname === '/api/account/claims/notify' && request.method === 'POST') {
+      const body = await readJson(request);
+      const type = (body?.type || 'new_claim') as 'new_claim' | 'author_reply';
+      const claim = body?.claim;
+      const replyText = body?.replyText;
+
+      if (!claim) {
+        return json({ error: 'Ticket de réclamation manquant' }, { status: 400 });
+      }
+
+      try {
+        const result = await sendClaimNotificationEmail(env, type, claim, replyText);
+        return json({ ok: true, sent: result.success, error: result.error });
+      } catch (err: any) {
+        console.warn('Erreur notification SAV:', err);
+        return json({ ok: false, error: err?.message || 'Erreur d\'envoi email' }, { status: 500 });
+      }
+    }
+
     // Admin: fulfill an order by copying digital PDFs into R2, updating order payload, sending email, and logging audit
     if (pathname === '/api/account/orders/fulfill' && request.method === 'POST') {
       const body = await readJson(request);
@@ -1083,31 +1280,6 @@ export default {
         }
       }
 
-      if (!orderRow && KNOWN_SEED_ORDERS[orderId]) {
-        const seed = KNOWN_SEED_ORDERS[orderId];
-        if (seed.customerEmail.toLowerCase() === email) {
-          const custId = customerIdFromEmail(email);
-          await env.DB.prepare(
-            'INSERT INTO customers (id, email, first_name, last_name, phone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING'
-          ).bind(custId, email, seed.firstName, seed.lastName, '').run();
-
-          const seedOrder = {
-            id: orderId,
-            date: new Date().toISOString().split('T')[0],
-            customer: { email, firstName: seed.firstName, lastName: seed.lastName },
-            items: seed.items.map((it) => ({ ...it, unitPrice: 0.5, quantity: 1 })),
-            paymentStatus: 'paye',
-            orderStatus: 'livree',
-            total: 0.5
-          };
-          await env.DB.prepare(
-            'INSERT OR REPLACE INTO orders (id, customer_id, payload_json) VALUES (?, ?, ?)'
-          ).bind(orderId, custId, JSON.stringify(seedOrder)).run();
-
-          orderRow = { payload_json: JSON.stringify(seedOrder) };
-        }
-      }
-
       if (!orderRow) {
         return json({ error: 'Order not found' }, { status: 404 });
       }
@@ -1120,9 +1292,8 @@ export default {
       };
 
       if (order.paymentStatus !== 'paye') {
-        const isSeedOrder = KNOWN_SEED_ORDERS[orderId] && KNOWN_SEED_ORDERS[orderId].customerEmail.toLowerCase() === email;
         const hasDigitalNotes = typeof order.notes === 'string' && (order.notes.includes('Téléchargements activés') || order.notes.includes('numérique'));
-        if (isSeedOrder || hasDigitalNotes) {
+        if (hasDigitalNotes) {
           order.paymentStatus = 'paye';
           order.orderStatus = 'livree';
           try {

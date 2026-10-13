@@ -1,0 +1,7 @@
+# Configuration pour exécution locale avec Wrangler (wrangler dev)
+# Dupliquez ce fichier vers '.dev.vars' pour renseigner votre mot de passe d'application Google réel en local sans l'exposer sur Git.
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=465
+GMAIL_FULLNAME="Philippe Mourey"
+GMAIL_USER=philippe.mourey@gmail.com
+GMAIL_APP_PWD="votre-mot-de-passe-d-application-16-caracteres"
