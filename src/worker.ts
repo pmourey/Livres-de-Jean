@@ -45,8 +45,11 @@ export interface Env {
   SMTP_SERVER?: string;
   SMTP_PORT?: string | number;
   GMAIL_FULLNAME?: string;
+  MAIL_FULLNAME?: string;
   GMAIL_USER?: string;
+  MAIL_USER?: string;
   GMAIL_APP_PWD?: string;
+  MAIL_APP_PWD?: string;
 }
 
 async function ensureTables(db?: D1Database) {
@@ -185,6 +188,18 @@ const utf8Base64 = (str: string) => {
   return btoa(binary);
 };
 
+export function getGmailAppPwd(env: Env): string {
+  return (env.GMAIL_APP_PWD || env.MAIL_APP_PWD || '').replace(/\s+/g, '');
+}
+
+export function getGmailUser(env: Env): string {
+  return (env.GMAIL_USER || env.MAIL_USER || 'philippe.mourey@gmail.com').trim();
+}
+
+export function getGmailFullName(env: Env): string {
+  return (env.GMAIL_FULLNAME || env.MAIL_FULLNAME || 'Philippe Mourey').trim();
+}
+
 export async function sendGmailSmtp(
   env: Env,
   to: string,
@@ -194,13 +209,13 @@ export async function sendGmailSmtp(
 ): Promise<{ success: boolean; error?: string }> {
   const host = env.SMTP_SERVER || 'smtp.gmail.com';
   const port = Number(env.SMTP_PORT || 465);
-  const user = (env.GMAIL_USER || 'philippe.mourey@gmail.com').trim();
-  const pass = (env.GMAIL_APP_PWD || '').replace(/\s+/g, '');
-  const fromName = env.GMAIL_FULLNAME || 'Philippe Mourey';
+  const user = getGmailUser(env);
+  const pass = getGmailAppPwd(env);
+  const fromName = getGmailFullName(env);
 
   if (!pass || pass === 'xxxxx') {
-    console.warn('[SMTP] Mot de passe GMAIL_APP_PWD absent ou non configuré. Envoi SMTP ignoré.');
-    return { success: false, error: 'GMAIL_APP_PWD non configuré' };
+    console.warn('[SMTP] Mot de passe d\'application absent ou non configuré. Envoi SMTP ignoré.');
+    return { success: false, error: 'Mot de passe d\'application (GMAIL_APP_PWD ou MAIL_APP_PWD) non configuré' };
   }
 
   let socket: any = null;
@@ -324,12 +339,13 @@ async function sendOtpEmail(env: Env, toEmail: string, code: string) {
       <p style="font-size: 12px; color: #666; text-align: center;">Ce code est valable pendant <strong>15 minutes</strong>.</p>
       <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
         <p style="margin: 0;">Éditions Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
-        <p style="margin: 4px 0 0 0;">Expédié via ${env.GMAIL_USER || 'philippe.mourey@gmail.com'}</p>
+        <p style="margin: 4px 0 0 0;">Expédié via ${getGmailUser(env)}</p>
       </div>
     </div>
   `;
 
-  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+  const appPwd = getGmailAppPwd(env);
+  if (appPwd && appPwd !== 'xxxxx') {
     const res = await sendGmailSmtp(env, toEmail, subject, html);
     if (res.success) return res;
   }
@@ -344,7 +360,7 @@ async function sendOtpEmail(env: Env, toEmail: string, code: string) {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: toEmail }] }],
-          from: { email: env.GMAIL_USER || 'philippe.mourey@gmail.com', name: env.GMAIL_FULLNAME || 'Éditions Émile Mourey' },
+          from: { email: getGmailUser(env), name: getGmailFullName(env) },
           subject,
           content: [{ type: 'text/html', value: html }]
         })
@@ -362,7 +378,7 @@ async function sendOtpEmail(env: Env, toEmail: string, code: string) {
 const MEMORY_AUTH_CODES = new Map<string, { code: string; expiresAt: number }>();
 
 async function sendAuthorNewOrderAlertEmail(env: Env, order: any) {
-  const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
+  const authorEmail = getGmailUser(env);
   const orderId = order.id || 'CMD-XXXX';
   const total = typeof order.total === 'number' ? order.total.toFixed(2) : order.total;
   const customer = order.customer || {};
@@ -420,7 +436,8 @@ async function sendAuthorNewOrderAlertEmail(env: Env, order: any) {
     </div>
   `;
 
-  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+  const appPwd = getGmailAppPwd(env);
+  if (appPwd && appPwd !== 'xxxxx') {
     return await sendGmailSmtp(env, authorEmail, subject, html);
   }
   return { success: false, error: 'SMTP non configuré' };
@@ -496,13 +513,14 @@ async function sendOrderConfirmationEmail(env: Env, order: any) {
 
       <div style="margin-top: 28px; padding-top: 14px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
         <p style="margin: 0;">Monsieur Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
-        <p style="margin: 4px 0 0 0;">Pour toute question, contactez l'auteur à : ${env.GMAIL_USER || 'philippe.mourey@gmail.com'}</p>
+        <p style="margin: 4px 0 0 0;">Pour toute question, contactez l'auteur à : ${getGmailUser(env)}</p>
       </div>
     </div>
   `;
 
   let clientRes: any = { success: false };
-  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+  const clientAppPwd = getGmailAppPwd(env);
+  if (clientAppPwd && clientAppPwd !== 'xxxxx') {
     clientRes = await sendGmailSmtp(env, customerEmail, subject, html);
     // Alert the author as well
     try {
@@ -520,7 +538,7 @@ async function sendOrderConfirmationEmail(env: Env, order: any) {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: customerEmail }] }],
-          from: { email: env.GMAIL_USER || 'philippe.mourey@gmail.com', name: env.GMAIL_FULLNAME || 'Éditions Émile Mourey' },
+          from: { email: getGmailUser(env), name: getGmailFullName(env) },
           subject,
           content: [{ type: 'text/html', value: html }]
         })
@@ -605,7 +623,8 @@ async function sendShippingNotificationEmail(
     </div>
   `;
 
-  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+  const appPwd = getGmailAppPwd(env);
+  if (appPwd && appPwd !== 'xxxxx') {
     return await sendGmailSmtp(env, customerEmail, subject, html);
   }
   return { success: false, error: 'SMTP non configuré' };
@@ -617,7 +636,7 @@ async function sendClaimNotificationEmail(
   claim: any,
   replyText?: string
 ) {
-  const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
+  const authorEmail = getGmailUser(env);
   const customerEmail = claim?.customerEmail || '';
   const orderId = claim?.orderId || 'CMD-XXXX';
   const claimId = claim?.id || 'SAV';
@@ -661,7 +680,8 @@ async function sendClaimNotificationEmail(
       </div>
     `;
 
-    if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    const appPwd = getGmailAppPwd(env);
+    if (appPwd && appPwd !== 'xxxxx') {
       await sendGmailSmtp(env, authorEmail, authorSubject, authorHtml);
       if (customerEmail) {
         await sendGmailSmtp(env, customerEmail, clientSubject, clientHtml);
@@ -693,7 +713,8 @@ async function sendClaimNotificationEmail(
       </div>
     `;
 
-    if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    const appPwd = getGmailAppPwd(env);
+    if (appPwd && appPwd !== 'xxxxx') {
       return await sendGmailSmtp(env, customerEmail, replySubject, replyHtml);
     }
     return { success: false, error: 'SMTP non configuré' };
@@ -998,19 +1019,32 @@ export default {
     }
 
     // Author Back-Office: Test SMTP configuration
-    if (pathname === '/api/admin/test-email' && request.method === 'POST') {
-      const body = await readJson(request);
-      const recipient = String(body?.to || env.GMAIL_USER || 'philippe.mourey@gmail.com').trim();
-      const testResult = await sendGmailSmtp(
-        env,
-        recipient,
-        'Test de configuration SMTP Gmail - Éditions Émile Mourey',
-        `<p>Bonjour ${env.GMAIL_FULLNAME || 'Philippe Mourey'},</p><p>Votre serveur SMTP Gmail (${env.SMTP_SERVER || 'smtp.gmail.com'}:${env.SMTP_PORT || 465}) fonctionne avec succès depuis votre Cloudflare Worker !</p><p>Les codes de connexion OTP et récapitulatifs de commandes seront désormais expédiés via cette adresse officielle.</p>`
-      );
-      if (!testResult.success) {
-        return json({ ok: false, error: testResult.error }, { status: 500 });
+    if (pathname === '/api/admin/test-email') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: corsHeaders });
       }
-      return json({ ok: true, message: `Email de test envoyé avec succès à ${recipient}` });
+      if (request.method === 'POST') {
+        const body = await readJson(request);
+        const recipient = String(body?.to || getGmailUser(env)).trim();
+        const pwd = getGmailAppPwd(env);
+        if (!pwd || pwd === 'xxxxx') {
+          return json({
+            ok: false,
+            error: "Mot de passe d'application non configuré. Renseignez GMAIL_APP_PWD (ou MAIL_APP_PWD) dans wrangler.toml ou exécutez 'npx wrangler secret put GMAIL_APP_PWD' avant de déployer."
+          }, { status: 400 });
+        }
+
+        const testResult = await sendGmailSmtp(
+          env,
+          recipient,
+          'Test de configuration SMTP Gmail - Éditions Émile Mourey',
+          `<p>Bonjour ${getGmailFullName(env)},</p><p>Votre serveur SMTP Gmail (${env.SMTP_SERVER || 'smtp.gmail.com'}:${env.SMTP_PORT || 465}) fonctionne avec succès depuis votre Cloudflare Worker !</p><p>Les codes de connexion OTP et récapitulatifs de commandes sont désormais expédiés via cette adresse officielle.</p>`
+        );
+        if (!testResult.success) {
+          return json({ ok: false, error: testResult.error }, { status: 500 });
+        }
+        return json({ ok: true, message: `Email de test envoyé avec succès à ${recipient}` });
+      }
     }
 
     if (pathname === '/api/account/login' && request.method === 'POST') {

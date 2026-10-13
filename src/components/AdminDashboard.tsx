@@ -7,7 +7,8 @@ import { PAYMENTS_API_BASE } from '../config/commerce';
 import { 
   ShieldCheck, Package, DollarSign, Truck, AlertTriangle, Check, 
   Printer, Plus, Edit, Trash2, ArrowUpRight, Search, FileText, Send,
-  Lock, LogOut, KeyRound, Eye, EyeOff, Sparkles, ArrowLeft, Mail
+  Lock, LogOut, KeyRound, Eye, EyeOff, Sparkles, ArrowLeft, Mail,
+  HelpCircle, Terminal, Copy
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -206,6 +207,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [testEmailStatus, setTestEmailStatus] = useState<string | null>(null);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [showSmtpModal, setShowSmtpModal] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState(false);
+
+  const handleCopyDeploy = () => {
+    navigator.clipboard.writeText('npx wrangler deploy');
+    setCopiedCommand(true);
+    setTimeout(() => setCopiedCommand(false), 2500);
+  };
 
   const handleTestSmtpEmail = async () => {
     setIsTestingEmail(true);
@@ -220,15 +229,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res.ok && data?.ok) {
         setTestEmailStatus('Email de test Gmail envoyé avec succès à philippe.mourey@gmail.com !');
       } else if (res.status === 404) {
-        setTestEmailStatus("Le code du Worker a été mis à jour avec la route de test, mais votre Worker Cloudflare distant n'a pas encore été redéployé. Exécutez 'npx wrangler deploy' dans votre terminal pour activer l'envoi en ligne.");
+        setTestEmailStatus("Erreur 404 distante : Le code de test est prêt dans src/worker.ts, mais votre Cloudflare Worker en ligne doit être déployé avec 'npx wrangler deploy'.");
       } else {
         setTestEmailStatus(`Info SMTP : ${data?.error || `Erreur serveur (${res.status})`}`);
       }
     } catch {
-      setTestEmailStatus("Connexion au Worker impossible. Vérifiez que votre Worker est actif ou lancez 'npx wrangler deploy'.");
+      setTestEmailStatus("Connexion au Worker impossible. Vérifiez l'accès réseau ou redéployez avec 'npx wrangler deploy'.");
     } finally {
       setIsTestingEmail(false);
-      setTimeout(() => setTestEmailStatus(null), 10000);
+      setTimeout(() => setTestEmailStatus(null), 12000);
     }
   };
 
@@ -392,6 +401,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setShowSmtpModal(true)}
+            className="px-2.5 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 rounded text-xs inline-flex items-center gap-1 transition-colors"
+            title="Afficher le guide de configuration SMTP et déploiement Cloudflare Worker"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-300" />
+            <span className="hidden sm:inline">Guide Worker & SMTP</span>
+          </button>
+
+          <button
             onClick={handleLockAdmin}
             className="px-3 py-2 bg-stone-800 hover:bg-rose-950 text-stone-300 hover:text-rose-200 border border-stone-700 rounded text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
             title="Verrouiller l'espace auteur et fermer la session"
@@ -404,18 +422,139 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* SMTP Test Status Toast */}
       {testEmailStatus && (
-        <div className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+        <div className={`p-3.5 rounded-lg border text-xs flex items-center justify-between shadow-xs ${
           testEmailStatus.startsWith('Email de test')
             ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
             : 'bg-amber-50 border-amber-300 text-amber-900'
         }`}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-1 pr-2">
             <Mail className="w-4 h-4 shrink-0 text-amber-600" />
             <span>{testEmailStatus}</span>
+            {testEmailStatus.includes('404') && (
+              <button
+                onClick={() => setShowSmtpModal(true)}
+                className="underline font-semibold ml-2 text-[#8B1E2D] hover:text-stone-900 whitespace-nowrap cursor-pointer"
+              >
+                Comment résoudre ?
+              </button>
+            )}
           </div>
-          <button onClick={() => setTestEmailStatus(null)} className="text-stone-400 hover:text-stone-700 text-xs">
+          <button onClick={() => setTestEmailStatus(null)} className="text-stone-400 hover:text-stone-700 text-xs px-1">
             ✕
           </button>
+        </div>
+      )}
+
+      {/* SMTP & Worker Deployment Modal */}
+      {showSmtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-stone-200">
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between bg-stone-900 text-white rounded-t-xl">
+              <div className="flex items-center gap-2.5">
+                <Terminal className="w-5 h-5 text-amber-400" />
+                <h3 className="font-serif-display font-bold text-base text-stone-100">
+                  Déploiement du Worker Cloudflare & SMTP Gmail
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowSmtpModal(false)}
+                className="text-stone-400 hover:text-white text-lg font-bold p-1 leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 text-sm text-stone-700 leading-relaxed">
+              {/* Point 1: 404 Explanation */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="font-bold text-amber-950 flex items-center gap-2 mb-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Pourquoi l'erreur 404 apparaît-elle lors du test ?
+                </h4>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  L'adresse <code>https://livres-de-jean-payments.super-violet-dc40.workers.dev</code> appelle votre serveur Cloudflare distant en production.
+                  La nouvelle route <code>/api/admin/test-email</code> (et toute la gestion SMTP) est codée dans <code>src/worker.ts</code> mais doit être <strong>redéployée</strong> sur Cloudflare pour être active en ligne.
+                </p>
+              </div>
+
+              {/* Point 2: Deploy Command */}
+              <div>
+                <h4 className="font-bold text-stone-900 mb-2 flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#8B1E2D]" />
+                  Étape 1 : Publier le Worker mis à jour
+                </h4>
+                <p className="text-xs text-stone-600 mb-2">
+                  Dans le terminal de votre projet, lancez simplement la commande de déploiement :
+                </p>
+                <div className="flex items-center justify-between bg-stone-900 text-stone-100 font-mono text-xs px-3.5 py-2.5 rounded-lg border border-stone-800">
+                  <span>npx wrangler deploy</span>
+                  <button
+                    onClick={handleCopyDeploy}
+                    className="flex items-center gap-1 bg-stone-800 hover:bg-stone-700 text-amber-300 px-2 py-1 rounded text-[11px] transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedCommand ? 'Copié !' : 'Copier'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Point 3: App Password in wrangler.toml */}
+              <div>
+                <h4 className="font-bold text-stone-900 mb-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#8B1E2D]" />
+                  Étape 2 : Mot de passe d'application Google (16 caractères)
+                </h4>
+                <p className="text-xs text-stone-600 mb-2">
+                  Vous avez demandé : <em>« Est-il possible de mettre ces données dans wrangler.toml ? »</em>
+                </p>
+                <div className="bg-stone-50 border border-stone-200 rounded-lg p-3.5 text-xs space-y-2">
+                  <p>
+                    <strong>Oui, absolument !</strong> Les variables de base sont déjà inscrites dans <code>wrangler.toml</code> :
+                  </p>
+                  <pre className="bg-white p-2.5 rounded border border-stone-200 text-[11px] text-stone-800 font-mono">
+                    {`[vars]
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = "465"
+GMAIL_FULLNAME = "Philippe Mourey"
+GMAIL_USER = "philippe.mourey@gmail.com"`}
+                  </pre>
+                  <p>
+                    Pour votre mot de passe d'application Google à 16 lettres, deux possibilités :
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 text-stone-600">
+                    <li>
+                      <strong>Dans <code>wrangler.toml</code></strong> (si votre dépôt GitHub est privé) : décommentez simplement <code>GMAIL_APP_PWD = "votre-code"</code> (ou <code>MAIL_APP_PWD</code>, les deux noms sont supportés !).
+                    </li>
+                    <li>
+                      <strong>Par commande sécurisée</strong> (recommandé si dépôt public) :<br/>
+                      <code className="bg-stone-200 px-1 py-0.5 rounded text-stone-800">npx wrangler secret put GMAIL_APP_PWD</code>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Point 4: What is handled */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3.5 text-xs text-emerald-950">
+                <h5 className="font-bold mb-1 text-emerald-900">Envois automatiques désormais actifs après déploiement :</h5>
+                <ul className="list-disc pl-4 space-y-0.5 text-emerald-800">
+                  <li>Envoi des <strong>codes de connexion OTP</strong> aux lecteurs par email (codes temporaires désactivés).</li>
+                  <li>Envoi de la <strong>confirmation de commande</strong> et facture à l'acheteur.</li>
+                  <li><strong>Alerte immédiate à l'auteur</strong> lors d'une nouvelle commande papier à expédier.</li>
+                  <li>Notification avec numéro de suivi Colissimo lors de l'expédition.</li>
+                  <li>Gestion des <strong>réclamations SAV</strong> avec alertes auteur et accusés de réception client.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 bg-stone-100 border-t border-stone-200 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowSmtpModal(false)}
+                className="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded text-xs font-semibold"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

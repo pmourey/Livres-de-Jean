@@ -29,11 +29,10 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = "465"
 GMAIL_FULLNAME = "Philippe Mourey"
 GMAIL_USER = "philippe.mourey@gmail.com"
-# Pour GMAIL_APP_PWD (mot de passe d'application Google à 16 caractères) :
-# Option 1 (Recommandée & sécurisée pour production) :
-#   Exécuter : npx wrangler secret put GMAIL_APP_PWD
-# Option 2 (Développement local avec wrangler dev) :
-#   Créer un fichier .dev.vars contenant : GMAIL_APP_PWD="votre mot de passe"
-# Option 3 (Dépôt strictement privé) :
-#   Décommenter la variable ci-dessous :
-# GMAIL_APP_PWD = "xxxxx"
+# Pour le mot de passe d'application Gmail à 16 caractères :
+# Option 1 (Recommandée & sécurisée pour production, évite d'écrire le mot de passe dans git) :
+#   Exécuter dans votre terminal : npx wrangler secret put GMAIL_APP_PWD
+# Option 2 (Si votre dépôt GitHub est privé et que vous souhaitez le mettre directement ici) :
+#   Décommentez l'une des variables ci-dessous et remplacez par votre code d'application à 16 lettres :
+# GMAIL_APP_PWD = "votre_mot_de_passe_app_16_caracteres"
+# MAIL_APP_PWD = "votre_mot_de_passe_app_16_caracteres"
