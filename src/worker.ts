@@ -42,6 +42,11 @@ export interface Env {
   PAYPAL_API_BASE?: string;
   ADMIN_SECRET?: string;
   SENDGRID_API_KEY?: string;
+  SMTP_SERVER?: string;
+  SMTP_PORT?: string | number;
+  GMAIL_FULLNAME?: string;
+  GMAIL_USER?: string;
+  GMAIL_APP_PWD?: string;
 }
 
 const KNOWN_SEED_ORDERS: Record<string, {
@@ -268,6 +273,291 @@ const verifyAdminToken = async (env: Env, token: string) => {
   return { role: 'admin', timestamp };
 };
 
+const utf8Base64 = (str: string) => {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+};
+
+export async function sendGmailSmtp(
+  env: Env,
+  to: string,
+  subject: string,
+  htmlContent: string,
+  textContent?: string
+): Promise<{ success: boolean; error?: string }> {
+  const host = env.SMTP_SERVER || 'smtp.gmail.com';
+  const port = Number(env.SMTP_PORT || 465);
+  const user = (env.GMAIL_USER || 'philippe.mourey@gmail.com').trim();
+  const pass = (env.GMAIL_APP_PWD || '').replace(/\s+/g, '');
+  const fromName = env.GMAIL_FULLNAME || 'Philippe Mourey';
+
+  if (!pass || pass === 'xxxxx') {
+    console.warn('[SMTP] Mot de passe GMAIL_APP_PWD absent ou non configuré. Envoi SMTP ignoré.');
+    return { success: false, error: 'GMAIL_APP_PWD non configuré' };
+  }
+
+  let socket: any = null;
+  try {
+    // Import Cloudflare TCP socket API
+    // @ts-ignore
+    const { connect } = await import('cloudflare:sockets');
+    socket = connect({ hostname: host, port }, { secureTransport: 'on' });
+
+    const reader = socket.readable.getReader();
+    const writer = socket.writable.getWriter();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    let buffer = '';
+    async function readReply(): Promise<{ code: number; text: string }> {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) throw new Error('Connexion SMTP fermée par le serveur distant');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\r\n');
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i];
+          if (/^\d{3}\s/.test(line)) {
+            const code = parseInt(line.substring(0, 3), 10);
+            buffer = lines.slice(i + 1).join('\r\n');
+            return { code, text: line };
+          }
+        }
+      }
+    }
+
+    async function send(cmd: string, expected?: number) {
+      await writer.write(encoder.encode(cmd + '\r\n'));
+      const reply = await readReply();
+      if (expected && reply.code !== expected) {
+        throw new Error(`Erreur SMTP [${reply.code}]: ${reply.text} (commande: ${cmd.substring(0, 15)})`);
+      }
+      return reply;
+    }
+
+    // 1. Initial Greeting
+    const greeting = await readReply();
+    if (greeting.code !== 220) throw new Error(`Réponse initiale inattendue: ${greeting.text}`);
+
+    // 2. EHLO
+    await send('EHLO localhost', 250);
+
+    // 3. AUTH LOGIN
+    await send('AUTH LOGIN', 334);
+    await send(btoa(user), 334);
+    await send(btoa(pass), 235);
+
+    // 4. Envelope
+    await send(`MAIL FROM:<${user}>`, 250);
+    await send(`RCPT TO:<${to}>`, 250);
+
+    // 5. DATA
+    await send('DATA', 354);
+
+    const boundary = `----=_Part_${Date.now()}`;
+    const cleanText = textContent || htmlContent.replace(/<[^>]+>/g, ' ');
+
+    const rawMessage = [
+      `From: =?UTF-8?B?${utf8Base64(fromName)}?= <${user}>`,
+      `To: <${to}>`,
+      `Subject: =?UTF-8?B?${utf8Base64(subject)}?=`,
+      `Date: ${new Date().toUTCString()}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      '',
+      utf8Base64(cleanText),
+      '',
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      '',
+      utf8Base64(htmlContent),
+      '',
+      `--${boundary}--`,
+      '.'
+    ].join('\r\n');
+
+    await writer.write(encoder.encode(rawMessage + '\r\n'));
+    await readReply();
+
+    try {
+      await send('QUIT', 221);
+    } catch {}
+
+    reader.releaseLock();
+    writer.releaseLock();
+    await socket.close();
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[SMTP Gmail Error]:', err);
+    return { success: false, error: err?.message || String(err) };
+  }
+}
+
+async function sendOtpEmail(env: Env, toEmail: string, code: string) {
+  const subject = `Votre code d'accès lecteur : ${code} - Éditions Émile Mourey`;
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #E7E2D9; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+      <div style="border-bottom: 2px solid #8B1E2D; padding-bottom: 12px; margin-bottom: 20px;">
+        <h1 style="font-family: Georgia, serif; font-size: 22px; margin: 0; color: #2B1810;">Éditions Émile Mourey</h1>
+        <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #8B1E2D; margin: 4px 0 0 0; font-weight: bold;">Espace Lecteur Sécurisé</p>
+      </div>
+      <p style="font-size: 14px; line-height: 1.6;">Bonjour,</p>
+      <p style="font-size: 14px; line-height: 1.6;">Voici votre code de sécurité à usage unique pour vous connecter à votre Espace Lecteur et accéder à vos commandes et téléchargements :</p>
+      <div style="text-align: center; margin: 24px 0;">
+        <span style="font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #8B1E2D; background-color: #FFFFFF; padding: 12px 24px; border-radius: 6px; border: 1px solid #D6CEBE; display: inline-block;">
+          ${code}
+        </span>
+      </div>
+      <p style="font-size: 12px; color: #666; text-align: center;">Ce code est valable pendant <strong>15 minutes</strong>.</p>
+      <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
+        <p style="margin: 0;">Éditions Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
+        <p style="margin: 4px 0 0 0;">Expédié via ${env.GMAIL_USER || 'philippe.mourey@gmail.com'}</p>
+      </div>
+    </div>
+  `;
+
+  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    const res = await sendGmailSmtp(env, toEmail, subject, html);
+    if (res.success) return res;
+  }
+
+  if (env.SENDGRID_API_KEY) {
+    try {
+      await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: toEmail }] }],
+          from: { email: env.GMAIL_USER || 'philippe.mourey@gmail.com', name: env.GMAIL_FULLNAME || 'Éditions Émile Mourey' },
+          subject,
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.warn('SendGrid fallback error:', err);
+    }
+  }
+
+  return { success: false, error: 'Aucun moyen d\'envoi actif' };
+}
+
+async function sendOrderConfirmationEmail(env: Env, order: any) {
+  const customerEmail = order?.customer?.email || '';
+  if (!customerEmail) return { success: false, error: 'Email client manquant' };
+
+  const customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim() || 'Cher lecteur';
+  const orderId = order.id;
+  const total = typeof order.total === 'number' ? order.total.toFixed(2) : order.total;
+  const subject = `Confirmation de votre commande ${orderId} - Éditions Émile Mourey`;
+
+  const itemsHtml = (order.items || []).map((item: any) => `
+    <tr>
+      <td style="padding: 10px 8px; border-bottom: 1px solid #E7E2D9;">
+        <strong>${item.title || 'Livre d\'histoire'}</strong><br/>
+        <span style="font-size: 12px; color: #78716C;">Format : ${item.format === 'numerique_pdf' ? 'eBook PDF (Numérique)' : item.format === 'pack_duo' ? 'Pack Livre Papier + PDF' : 'Livre Papier relié'}</span>
+      </td>
+      <td style="padding: 10px 8px; border-bottom: 1px solid #E7E2D9; text-align: center; font-family: monospace;">
+        ${item.quantity || 1}
+      </td>
+      <td style="padding: 10px 8px; border-bottom: 1px solid #E7E2D9; text-align: right; font-family: monospace; font-weight: bold;">
+        ${(item.unitPrice || 0).toFixed(2)} €
+      </td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E7E2D9; border-radius: 8px; background-color: #FAF8F5; color: #2B1810;">
+      <div style="border-bottom: 2px solid #8B1E2D; padding-bottom: 12px; margin-bottom: 20px;">
+        <h1 style="font-family: Georgia, serif; font-size: 22px; margin: 0; color: #2B1810;">Éditions Émile Mourey</h1>
+        <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #8B1E2D; margin: 4px 0 0 0; font-weight: bold;">Confirmation de Commande & Facturation</p>
+      </div>
+
+      <p style="font-size: 14px; line-height: 1.6;">Bonjour ${customerName},</p>
+      <p style="font-size: 14px; line-height: 1.6;">Nous vous remercions pour votre commande d'ouvrages historiques. Voici le récapitulatif officiel de votre acquisition :</p>
+
+      <div style="background-color: #FFFFFF; border: 1px solid #E7E2D9; border-radius: 6px; padding: 14px; margin: 18px 0;">
+        <p style="margin: 0 0 6px 0; font-size: 13px;"><strong>Référence de commande :</strong> <span style="font-family: monospace; color: #8B1E2D; font-weight: bold;">${orderId}</span></p>
+        <p style="margin: 0 0 6px 0; font-size: 13px;"><strong>Date :</strong> ${order.date || new Date().toISOString().split('T')[0]}</p>
+        <p style="margin: 0; font-size: 13px;"><strong>Statut du règlement :</strong> ${order.paymentStatus === 'paye' ? 'Validé et payé en ligne' : 'En attente de réception'}</p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
+        <thead>
+          <tr style="background-color: #F5EFEB; text-align: left;">
+            <th style="padding: 8px; border-bottom: 2px solid #D6CEBE;">Article</th>
+            <th style="padding: 8px; border-bottom: 2px solid #D6CEBE; text-align: center;">Qté</th>
+            <th style="padding: 8px; border-bottom: 2px solid #D6CEBE; text-align: right;">Prix</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="padding: 12px 8px; text-align: right; font-weight: bold; border-top: 2px solid #8B1E2D;">Total TTC :</td>
+            <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-family: monospace; font-size: 16px; color: #8B1E2D; border-top: 2px solid #8B1E2D;">${total} €</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="background-color: #F3EFEA; padding: 14px; border-radius: 6px; margin-top: 20px;">
+        <h4 style="margin: 0 0 6px 0; font-size: 13px; color: #2B1810;">Accès à vos livres & Téléchargements :</h4>
+        <p style="margin: 0; font-size: 12px; line-height: 1.5;">
+          Retrouvez vos exemplaires numériques et vos factures en vous connectant à votre <strong>Espace Lecteur</strong> avec votre email : <br/>
+          <a href="${env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean'}/" style="color: #8B1E2D; font-weight: bold; text-decoration: underline;">Accéder à mon Espace Lecteur</a>
+        </p>
+      </div>
+
+      <div style="margin-top: 28px; padding-top: 14px; border-top: 1px solid #E7E2D9; font-size: 11px; color: #78716C; text-align: center;">
+        <p style="margin: 0;">Monsieur Émile Mourey · SIREN 418 122 883 · Domiciliation La Banque Postale</p>
+        <p style="margin: 4px 0 0 0;">Pour toute question, contactez l'auteur à : ${env.GMAIL_USER || 'philippe.mourey@gmail.com'}</p>
+      </div>
+    </div>
+  `;
+
+  let clientRes: any = { success: false };
+  if (env.GMAIL_APP_PWD && env.GMAIL_APP_PWD !== 'xxxxx') {
+    clientRes = await sendGmailSmtp(env, customerEmail, subject, html);
+    const authorEmail = env.GMAIL_USER || 'philippe.mourey@gmail.com';
+    if (authorEmail && authorEmail !== customerEmail) {
+      await sendGmailSmtp(env, authorEmail, `[Nouvelle Commande] ${orderId} (${total} €)`, html);
+    }
+  } else if (env.SENDGRID_API_KEY) {
+    try {
+      await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: customerEmail }] }],
+          from: { email: env.GMAIL_USER || 'philippe.mourey@gmail.com', name: env.GMAIL_FULLNAME || 'Éditions Émile Mourey' },
+          subject,
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      clientRes = { success: true };
+    } catch (e) {
+      console.warn('SendGrid order confirmation warning:', e);
+    }
+  }
+
+  return clientRes;
+}
+
 
 const cents = (amount: number) => Math.round(amount * 100);
 
@@ -436,30 +726,11 @@ export default {
         ).bind(email, code, expiresAt).run();
       }
 
-      // If SendGrid API key is configured, send the real email
-      if (env.SENDGRID_API_KEY) {
-        try {
-          await fetch('https://api.sendgrid.com/v3/mail/send', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              personalizations: [{ to: [{ email }] }],
-              from: { email: 'contact@emilemourey.fr', name: 'Éditions Émile Mourey' },
-              subject: `Votre code d'accès lecteur : ${code}`,
-              content: [
-                {
-                  type: 'text/html',
-                  value: `<p>Bonjour,</p><p>Voici votre code de sécurité à usage unique pour vous connecter à votre Espace Lecteur :</p><h2 style="font-family: monospace; letter-spacing: 4px; color: #8B1E2D;">${code}</h2><p>Ce code est valable pendant 15 minutes.</p>`
-                }
-              ]
-            })
-          });
-        } catch (mailErr) {
-          console.warn('Mail send warning:', mailErr);
-        }
+      // Envoi de l'email avec le code de sécurité (priorité Gmail SMTP, fallback SendGrid)
+      try {
+        await sendOtpEmail(env, email, code);
+      } catch (mailErr) {
+        console.warn('Erreur envoi OTP:', mailErr);
       }
 
       return json({
@@ -569,6 +840,22 @@ export default {
       return json({ ok: true, role: 'admin' });
     }
 
+    // Author Back-Office: Test SMTP configuration
+    if (pathname === '/api/admin/test-email' && request.method === 'POST') {
+      const body = await readJson(request);
+      const recipient = String(body?.to || env.GMAIL_USER || 'philippe.mourey@gmail.com').trim();
+      const testResult = await sendGmailSmtp(
+        env,
+        recipient,
+        'Test de configuration SMTP Gmail - Éditions Émile Mourey',
+        `<p>Bonjour ${env.GMAIL_FULLNAME || 'Philippe Mourey'},</p><p>Votre serveur SMTP Gmail (${env.SMTP_SERVER || 'smtp.gmail.com'}:${env.SMTP_PORT || 465}) fonctionne avec succès depuis votre Cloudflare Worker !</p><p>Les codes de connexion OTP et récapitulatifs de commandes seront désormais expédiés via cette adresse officielle.</p>`
+      );
+      if (!testResult.success) {
+        return json({ ok: false, error: testResult.error }, { status: 500 });
+      }
+      return json({ ok: true, message: `Email de test envoyé avec succès à ${recipient}` });
+    }
+
     if (pathname === '/api/account/login' && request.method === 'POST') {
       const body = await readJson(request);
       const email = String(body?.email || '').trim().toLowerCase();
@@ -637,6 +924,14 @@ export default {
         await env.DB.prepare(
           'INSERT OR REPLACE INTO orders (id, customer_id, payload_json) VALUES (?, ?, ?)'
         ).bind(order.id, customerId, JSON.stringify(order)).run();
+
+        // Envoi automatique du récapitulatif de commande (Gmail SMTP / SendGrid)
+        try {
+          await sendOrderConfirmationEmail(env, order);
+        } catch (mailErr) {
+          console.warn('Envoi récapitulatif de commande warning:', mailErr);
+        }
+
         return json({ ok: true, persisted: true, orderId: order.id });
       } catch (error) {
         console.error('Failed to persist order', error);
@@ -710,38 +1005,11 @@ export default {
           console.warn('Failed to write audit log', auditErr);
         }
 
-        // send an email notification to the customer if SENDGRID_API_KEY is configured
+        // Notification email du client avec les liens de téléchargement débloqués
         try {
-          const customerEmail = order.customer?.email || '';
-          if (env.SENDGRID_API_KEY && customerEmail && downloadUrls.length) {
-            const msg = {
-              personalizations: [{ to: [{ email: customerEmail }], subject: 'Votre commande est prête — Téléchargement' }],
-              from: { email: 'no-reply@livres-de-jean.fr', name: 'Livres de Jean' },
-              content: [
-                { type: 'text/plain', value: `Bonjour,\n\nVotre commande ${orderId} a été traitée. Téléchargez vos fichiers ici:\n\n${downloadUrls.join('\n')}\n\nMerci.` }
-              ]
-            };
-
-            await fetch('https://api.sendgrid.com/v3/mail/send', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(msg)
-            });
-
-            // insert audit entry for email
-            try {
-              await env.DB.prepare('INSERT INTO orders_audit (order_id, action, actor, timestamp, details) VALUES (?, ?, ?, ?, ?)')
-                .bind(orderId, 'email_sent', 'system', new Date().toISOString(), JSON.stringify({ to: customerEmail, downloadUrls }))
-                .run();
-            } catch (emailAuditErr) {
-              console.warn('Failed to write email audit log', emailAuditErr);
-            }
-          }
+          await sendOrderConfirmationEmail(env, order);
         } catch (emailErr) {
-          console.warn('Failed to send email', emailErr);
+          console.warn('Failed to send fulfill email', emailErr);
         }
 
         return json({ ok: true, orderId, downloadUrls });
