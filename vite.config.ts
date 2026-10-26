@@ -9,7 +9,7 @@ export default defineConfig(() => {
     base: '/Livres-de-Jean/',
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve('.'),
       },
     },
     server: {

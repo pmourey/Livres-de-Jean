@@ -2,9 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ] # Mettez "master" si votre branche principale s'appelle master
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
-# Permet à l'action de déployer sur les Pages
+# Permet à l'action de déployer sur les GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -23,21 +24,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # cache: 'npm' # J'ai supprimé la ligne "cache: 'npm'" ici
+
       - name: Install dependencies
-        run: npm install # Au lieu de "npm ci"
-      - name: Build
+        run: npm install
+
+      - name: Build with Vite
         run: npm run build
+
+      - name: Prepare GitHub Pages files (.nojekyll & 404.html)
+        run: |
+          touch ./dist/.nojekyll
+          cp ./dist/index.html ./dist/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist' # Le dossier généré par Vite
+          path: './dist'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
