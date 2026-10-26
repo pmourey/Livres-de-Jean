@@ -14,6 +14,7 @@ interface CheckoutModalProps {
   items: CartItem[];
   currentUser: UserAccount | null;
   onOrderCreated: (order: Order) => void;
+  isMaintenanceMode?: boolean;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -21,7 +22,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   items,
   currentUser,
-  onOrderCreated
+  onOrderCreated,
+  isMaintenanceMode = false
 }) => {
   if (!isOpen) return null;
   const isProduction = import.meta.env.PROD;
@@ -262,7 +264,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 sm:p-8 overflow-y-auto flex-1">
+        <div className="p-6 sm:p-8 overflow-y-auto flex-1 space-y-4">
+          {isMaintenanceMode && (
+            <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg text-xs text-amber-950 flex items-start gap-3 shadow-xs">
+              <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <strong className="block font-bold text-amber-950 text-sm">
+                  Site en cours de construction · Règlements temporairement désactivés
+                </strong>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  L'enregistrement et le paiement des commandes sont actuellement suspendus par l'auteur. Aucun débit ne sera effectué. Vous pourrez finaliser votre commande dès la réouverture du service commercial.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Main Form (Left 8 cols) */}
             <div className="lg:col-span-8 space-y-6">
@@ -758,22 +774,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={handleCardPayment}
-                        disabled={isProcessing}
-                        className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-[#8B1E2D] hover:bg-[#721824] disabled:opacity-60 text-white text-xs font-bold rounded shadow transition-colors"
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>{isProcessing ? 'Redirection vers Stripe…' : `Payer ${Number(grandTotal || 0).toFixed(2)} € par Carte Bancaire`}</span>
-                      </button>
+                      {isMaintenanceMode ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-stone-300 text-stone-600 text-xs font-bold rounded cursor-not-allowed opacity-90 shadow-none"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Paiement CB suspendu (Site en construction)</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleCardPayment}
+                          disabled={isProcessing}
+                          className="w-full mt-2 inline-flex items-center justify-center gap-2 py-3 bg-[#8B1E2D] hover:bg-[#721824] disabled:opacity-60 text-white text-xs font-bold rounded shadow transition-colors"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>{isProcessing ? 'Redirection vers Stripe…' : `Payer ${Number(grandTotal || 0).toFixed(2)} € par Carte Bancaire`}</span>
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {/* Payment Gateway 2: PayPal Checkout */}
                   {paymentMethod === 'paypal' && (
                     <div className="bg-sky-50/50 p-4.5 rounded-md border border-sky-200 space-y-3.5">
-                      {PAYPAL_PAYMENT_LINK && (
+                      {!isMaintenanceMode && PAYPAL_PAYMENT_LINK && (
                         <a
                           href={PAYPAL_PAYMENT_LINK}
                           target="_blank"
@@ -811,16 +838,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => void redirectToHostedCheckout('/checkout/paypal')}
-                        disabled={isProcessing}
-                        className="w-full py-3 bg-[#FFC439] hover:bg-[#F4B41A] disabled:opacity-60 text-[#111] text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
-                      >
-                        <span className="font-black text-[#003087]">Pay</span>
-                        <span className="font-black text-[#0079C1] -ml-1">Pal</span>
-                        <span>{isProcessing ? 'Redirection vers PayPal…' : `· Régler ${Number(grandTotal || 0).toFixed(2)} €`}</span>
-                      </button>
+                      {isMaintenanceMode ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3 bg-stone-300 text-stone-600 text-xs font-bold rounded cursor-not-allowed opacity-90 shadow-none flex items-center justify-center gap-2"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Paiement PayPal suspendu (Site en construction)</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void redirectToHostedCheckout('/checkout/paypal')}
+                          disabled={isProcessing}
+                          className="w-full py-3 bg-[#FFC439] hover:bg-[#F4B41A] disabled:opacity-60 text-[#111] text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
+                        >
+                          <span className="font-black text-[#003087]">Pay</span>
+                          <span className="font-black text-[#0079C1] -ml-1">Pal</span>
+                          <span>{isProcessing ? 'Redirection vers PayPal…' : `· Régler ${Number(grandTotal || 0).toFixed(2)} €`}</span>
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -862,15 +900,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCompleteOrder('cheque_postal')}
-                        disabled={isProcessing}
-                        className="w-full py-3 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Valider ma commande et éditer le bon de commande chèque</span>
-                      </button>
+                      {isMaintenanceMode ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3 bg-stone-300 text-stone-600 text-xs font-bold rounded cursor-not-allowed opacity-90 shadow-none flex items-center justify-center gap-2"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Commandes chèque suspendues (Site en construction)</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCompleteOrder('cheque_postal')}
+                          disabled={isProcessing}
+                          className="w-full py-3 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-2"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Valider ma commande et éditer le bon de commande chèque</span>
+                        </button>
+                      )}
                     </div>
                   )}
 

@@ -8,7 +8,7 @@ import {
   ShieldCheck, Package, DollarSign, Truck, AlertTriangle, Check, 
   Printer, Plus, Edit, Trash2, ArrowUpRight, Search, FileText, Send,
   Lock, LogOut, KeyRound, Eye, EyeOff, Sparkles, ArrowLeft, Mail,
-  HelpCircle, Terminal, Copy
+  HelpCircle, Terminal, Copy, Wrench, Power
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -21,6 +21,10 @@ interface AdminDashboardProps {
   onAddBook: (newBook: Book) => void;
   onAnswerClaim: (claimId: string, replyText: string, markResolved?: boolean) => void;
   onExitAdmin?: () => void;
+  isMaintenanceMode?: boolean;
+  onToggleMaintenanceMode?: (enabled: boolean) => void;
+  maintenanceMessage?: string;
+  onUpdateMaintenanceMessage?: (message: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -32,7 +36,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateBookStock,
   onAddBook,
   onAnswerClaim,
-  onExitAdmin
+  onExitAdmin,
+  isMaintenanceMode = false,
+  onToggleMaintenanceMode,
+  maintenanceMessage = "Les commandes et paiements d'ouvrages sont temporairement suspendus. La consultation du catalogue et la lecture des extraits restent disponibles.",
+  onUpdateMaintenanceMessage
 }) => {
   // Admin Session State
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
@@ -71,6 +79,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newBookStock, setNewBookStock] = useState('20');
   const [newBookIsbn, setNewBookIsbn] = useState('978-2-9538412-6-8');
   const [newBookCategory, setNewBookCategory] = useState<Book['category']>('Histoire de Bibracte');
+
+  // Maintenance message local edit state
+  const [maintenanceInput, setMaintenanceInput] = useState(maintenanceMessage);
+  const [isSavedMessage, setIsSavedMessage] = useState(false);
 
   // Metrics
   const totalRevenue = orders.reduce((acc, o) => (o.paymentStatus === 'paye' ? acc + o.total : acc), 0);
@@ -557,6 +569,121 @@ GMAIL_USER = "philippe.mourey@gmail.com"`}
           </div>
         </div>
       )}
+
+      {/* Mode Maintenance Défini par l'Auteur Card */}
+      <div className={`p-6 rounded-xl border-2 transition-all shadow-sm ${
+        isMaintenanceMode 
+          ? 'bg-amber-50/90 border-amber-300 text-amber-950' 
+          : 'bg-white border-stone-200 text-stone-900'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 mb-4 border-stone-200/80">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className={`p-2.5 rounded-lg shrink-0 ${
+              isMaintenanceMode ? 'bg-amber-500 text-stone-950' : 'bg-stone-100 text-stone-600'
+            }`}>
+              <Wrench className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif-display font-bold text-lg text-stone-900">
+                  Mode Maintenance & Site en Construction
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                  isMaintenanceMode 
+                    ? 'bg-amber-400 text-stone-950 font-mono shadow-2xs' 
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {isMaintenanceMode ? 'Actif · Ventes suspendues' : 'Inactif · Site en ligne'}
+                </span>
+              </div>
+              <p className="text-xs text-stone-600 mt-1 max-w-2xl">
+                Contrôle exclusif de l'auteur : activez ou désactivez le mode maintenance. Lorsqu'il est actif, une bannière proéminente et non supprimable est affichée en haut de chaque page et tous les boutons de commande et paiements (CB, PayPal, chèque) sont verrouillés.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => onToggleMaintenanceMode?.(!isMaintenanceMode)}
+              className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all shadow-sm inline-flex items-center gap-2 cursor-pointer ${
+                isMaintenanceMode
+                  ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                  : 'bg-amber-500 hover:bg-amber-600 text-stone-950'
+              }`}
+            >
+              <Power className="w-4 h-4" />
+              <span>
+                {isMaintenanceMode ? 'Désactiver le mode maintenance (Ouvrir les ventes)' : 'Activer le mode maintenance (Désactiver paiements)'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Message editor & Live preview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-stone-800">
+              Message d'information affiché aux visiteurs :
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={maintenanceInput}
+                onChange={(e) => {
+                  setMaintenanceInput(e.target.value);
+                  setIsSavedMessage(false);
+                }}
+                placeholder="Message de la bannière..."
+                className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-md focus:ring-1 focus:ring-[#8B1E2D] focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateMaintenanceMessage?.(maintenanceInput);
+                  setIsSavedMessage(true);
+                  setTimeout(() => setIsSavedMessage(false), 3000);
+                }}
+                className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-md transition-colors shrink-0"
+              >
+                {isSavedMessage ? 'Enregistré ✓' : 'Appliquer'}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-stone-500">
+              <span>Texte court et explicite visible sur mobile et ordinateur.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultMsg = "Les commandes et paiements d'ouvrages sont temporairement suspendus. La consultation du catalogue et la lecture des extraits restent disponibles.";
+                  setMaintenanceInput(defaultMsg);
+                  onUpdateMaintenanceMessage?.(defaultMsg);
+                }}
+                className="underline hover:text-stone-800 cursor-pointer"
+              >
+                Rétablir le texte par défaut
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-stone-800">
+              Aperçu en direct de la bannière de maintenance :
+            </label>
+            <div className="p-3 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-stone-950 rounded-md border border-amber-600/40 shadow-xs text-xs flex items-center gap-2.5">
+              <span className="flex-shrink-0 inline-flex items-center justify-center p-1 rounded-full bg-stone-950 text-amber-400">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="font-bold uppercase tracking-wider text-[10px] bg-stone-950 text-amber-300 px-1.5 py-0.5 rounded mr-1.5 font-mono">
+                  Site en construction
+                </span>
+                <span className="font-semibold truncate">
+                  {maintenanceInput || maintenanceMessage}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

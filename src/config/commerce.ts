@@ -7,5 +7,10 @@ export const PAYMENTS_API_BASE = (
     : 'https://livres-de-jean-payments.super-violet-dc40.workers.dev'
 ).replace(/\/+$/, '');
 
+// Mode maintenance & suspension provisoire des paiements
+export const SITE_UNDER_CONSTRUCTION = true;
+export const PAYMENTS_TEMPORARILY_DISABLED = true;
+
 export const amazonKindleSearchUrl = (title: string, author: string) =>
   `https://www.amazon.fr/s?k=${encodeURIComponent(`${title} ${author} Kindle`)}`;
+

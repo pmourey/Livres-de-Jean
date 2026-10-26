@@ -4,7 +4,7 @@ import { BookCover } from './BookCover';
 import { amazonKindleSearchUrl } from '../config/commerce';
 import { 
   X, BookOpen, ShoppingBag, Feather, Check, Sparkles, Scale, 
-  Layers, FileText, Package, ExternalLink, Clock, AlertTriangle, Scroll 
+  Layers, FileText, Package, ExternalLink, Clock, AlertTriangle, Scroll, Lock
 } from 'lucide-react';
 
 interface BookDetailModalProps {
@@ -20,13 +20,15 @@ interface BookDetailModalProps {
     message?: string
   ) => void;
   onOpenExcerpt: (book: Book) => void;
+  isMaintenanceMode?: boolean;
 }
 
 export const BookDetailModal: React.FC<BookDetailModalProps> = ({
   book,
   onClose,
   onAddToCart,
-  onOpenExcerpt
+  onOpenExcerpt,
+  isMaintenanceMode = false
 }) => {
   const [selectedFormat, setSelectedFormat] = useState<BookFormat>('papier');
   const [quantity, setQuantity] = useState(1);
@@ -469,46 +471,72 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  {/* Quantity */}
-                  <div className="flex items-center border border-stone-300 rounded-md bg-white w-fit">
-                    <button
-                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="px-3 py-2 text-stone-600 hover:text-stone-900 transition-colors"
-                    >
-                      -
-                    </button>
-                    <span className="px-3 py-2 text-sm font-semibold text-stone-900 tabular-nums">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity((q) => Math.min(book.inStock || 10, q + 1))}
-                      className="px-3 py-2 text-stone-600 hover:text-stone-900 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
+                <div className="space-y-3 pt-2">
+                  {isMaintenanceMode && (
+                    <div className="p-3 bg-amber-50 border border-amber-300 rounded-md text-xs text-amber-950 flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <strong className="block font-bold text-amber-950">Site en cours de construction</strong>
+                        <p className="text-[11px] text-amber-900 leading-normal">
+                          Les commandes et paiements en ligne d'ouvrages sont temporairement suspendus. Vous pouvez librement feuilleter les extraits de ce livre ou accéder à l'édition Kindle ci-dessus.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Add to Cart button */}
-                  <button
-                    onClick={handleAdd}
-                    disabled={selectedFormat === 'papier' && book.inStock === 0}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#8B1E2D] hover:bg-[#721824] disabled:bg-stone-300 text-white font-semibold text-sm rounded-md shadow transition-all duration-200"
-                  >
-                    {addedAnimation ? (
-                      <>
-                        <Check className="w-4 h-4 text-emerald-300" />
-                        <span>Ajouté au panier !</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>
-                          Ajouter au panier ({selectedFormat === 'numerique_pdf' ? 'eBook PDF' : selectedFormat === 'pack_duo' ? 'Duo' : 'Papier'}) · {((Number(currentUnitPrice || 22.0)) * quantity).toFixed(2)} €
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    {/* Quantity */}
+                    {!isMaintenanceMode && (
+                      <div className="flex items-center border border-stone-300 rounded-md bg-white w-fit">
+                        <button
+                          onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                          className="px-3 py-2 text-stone-600 hover:text-stone-900 transition-colors"
+                        >
+                          -
+                        </button>
+                        <span className="px-3 py-2 text-sm font-semibold text-stone-900 tabular-nums">
+                          {quantity}
                         </span>
-                      </>
+                        <button
+                          onClick={() => setQuantity((q) => Math.min(book.inStock || 10, q + 1))}
+                          className="px-3 py-2 text-stone-600 hover:text-stone-900 transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
                     )}
-                  </button>
+
+                    {/* Add to Cart button */}
+                    {isMaintenanceMode ? (
+                      <button
+                        disabled
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-stone-300 text-stone-600 font-semibold text-sm rounded-md shadow-none cursor-not-allowed opacity-90"
+                      >
+                        <Lock className="w-4 h-4 text-stone-500" />
+                        <span>Commandes suspendues (Site en construction)</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleAdd}
+                        disabled={selectedFormat === 'papier' && book.inStock === 0}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#8B1E2D] hover:bg-[#721824] disabled:bg-stone-300 text-white font-semibold text-sm rounded-md shadow transition-all duration-200"
+                      >
+                        {addedAnimation ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-300" />
+                            <span>Ajouté au panier !</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>
+                              Ajouter au panier ({selectedFormat === 'numerique_pdf' ? 'eBook PDF' : selectedFormat === 'pack_duo' ? 'Duo' : 'Papier'}) · {((Number(currentUnitPrice || 22.0)) * quantity).toFixed(2)} €
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

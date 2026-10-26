@@ -174,6 +174,26 @@ export default function App() {
   const [legalModalType, setLegalModalType] = useState<'mentions' | 'cgv' | 'shipping_info' | null>(null);
   const [customerToken, setCustomerToken] = useState<string>(() => localStorage.getItem('emile_mourey_customer_token') || '');
 
+  // Author-controlled Maintenance Mode State (defaults to true as requested: under construction & payments paused)
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('emile_mourey_maintenance_mode');
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return true;
+      }
+    }
+    return true;
+  });
+
+  const [maintenanceMessage, setMaintenanceMessage] = useState<string>(() => {
+    return (
+      localStorage.getItem('emile_mourey_maintenance_message') ||
+      "Les commandes et paiements d'ouvrages sont temporairement suspendus. La consultation du catalogue et la lecture des extraits restent disponibles."
+    );
+  });
+
   // Sync to local storage
   useEffect(() => {
     localStorage.setItem('emile_mourey_books', JSON.stringify(books));
@@ -190,6 +210,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('emile_mourey_claims', JSON.stringify(claims));
   }, [claims]);
+
+  useEffect(() => {
+    localStorage.setItem('emile_mourey_maintenance_mode', JSON.stringify(isMaintenanceMode));
+  }, [isMaintenanceMode]);
+
+  useEffect(() => {
+    localStorage.setItem('emile_mourey_maintenance_message', maintenanceMessage);
+  }, [maintenanceMessage]);
 
   useEffect(() => {
     if (customerToken) {
@@ -268,6 +296,12 @@ export default function App() {
     recipient?: string,
     message?: string
   ) => {
+    // When maintenance mode is active, book ordering is disabled
+    if (isMaintenanceMode) {
+      setIsCartOpen(true);
+      return;
+    }
+
     // Unpublished manuscripts without legal deposit are not for sale
     if (book.isUnpublished) {
       return;
@@ -598,12 +632,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-[#22211F]">
-      {/* Top Header */}
+      {/* Top Header with prominent non-dismissible maintenance banner */}
       <Header
         cartCount={cartTotalCount}
         onOpenCart={() => setIsCartOpen(true)}
         onNavigate={setCurrentView}
         currentView={currentView}
+        isMaintenanceMode={isMaintenanceMode}
+        maintenanceMessage={maintenanceMessage}
       />
 
       {/* Main View Switcher */}
@@ -614,6 +650,7 @@ export default function App() {
             onSelectBook={(book) => setSelectedBook(book)}
             onQuickAddToCart={(book, format) => handleAddToCart(book, 1, format)}
             onOpenExcerpt={(book) => setExcerptBook(book)}
+            isMaintenanceMode={isMaintenanceMode}
           />
         )}
 
@@ -723,6 +760,10 @@ export default function App() {
             onAddBook={handleAddBook}
             onAnswerClaim={handleAnswerClaim}
             onExitAdmin={() => setCurrentView('catalog')}
+            isMaintenanceMode={isMaintenanceMode}
+            onToggleMaintenanceMode={(val) => setIsMaintenanceMode(val)}
+            maintenanceMessage={maintenanceMessage}
+            onUpdateMaintenanceMessage={(msg) => setMaintenanceMessage(msg)}
           />
         )}
       </main>
@@ -746,6 +787,7 @@ export default function App() {
             handleAddToCart(book, qty, format, unitPrice, dedication, rec, msg);
           }}
           onOpenExcerpt={(book) => setExcerptBook(book)}
+          isMaintenanceMode={isMaintenanceMode}
         />
       )}
 
@@ -764,6 +806,7 @@ export default function App() {
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onCheckout={() => setIsCheckoutOpen(true)}
+        isMaintenanceMode={isMaintenanceMode}
       />
 
       {isCheckoutOpen && (
@@ -773,6 +816,7 @@ export default function App() {
           items={cart}
           currentUser={currentUser}
           onOrderCreated={handleOrderCreated}
+          isMaintenanceMode={isMaintenanceMode}
         />
       )}
 

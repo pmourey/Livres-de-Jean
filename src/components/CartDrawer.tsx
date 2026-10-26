@@ -1,7 +1,7 @@
 import React from 'react';
 import { CartItem } from '../types';
 import { BookCover } from './BookCover';
-import { X, Trash2, ArrowRight, ShoppingBag, Feather, Truck, Scale, FileText, Package, Sparkles } from 'lucide-react';
+import { X, Trash2, ArrowRight, ShoppingBag, Feather, Truck, Scale, FileText, Package, Sparkles, AlertTriangle, Lock } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (bookId: string, format: string, quantity: number) => void;
   onRemoveItem: (bookId: string, format: string) => void;
   onCheckout: () => void;
+  isMaintenanceMode?: boolean;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -18,7 +19,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   items,
   onUpdateQuantity,
   onRemoveItem,
-  onCheckout
+  onCheckout,
+  isMaintenanceMode = false
 }) => {
   if (!isOpen) return null;
 
@@ -227,16 +229,38 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </span>
               </div>
 
-              <button
-                onClick={() => {
-                  onClose();
-                  onCheckout();
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#8B1E2D] hover:bg-[#721824] text-white font-semibold text-sm rounded-md shadow-md transition-colors"
-              >
-                <span>Passer la commande sécurisée</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {isMaintenanceMode ? (
+                <div className="space-y-2.5">
+                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-md text-xs text-amber-950 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>Commandes temporairement suspendues</span>
+                    </p>
+                    <p className="text-[11px] text-amber-900 leading-normal">
+                      Le site est actuellement en cours de construction. Le paiement en ligne et l'enregistrement de nouvelles commandes sont momentanément désactivés.
+                    </p>
+                  </div>
+
+                  <button
+                    disabled
+                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-stone-300 text-stone-600 font-semibold text-sm rounded-md cursor-not-allowed opacity-90 shadow-none"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Paiements suspendus (Site en construction)</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onCheckout();
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#8B1E2D] hover:bg-[#721824] text-white font-semibold text-sm rounded-md shadow-md transition-colors"
+                >
+                  <span>Passer la commande sécurisée</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
 
               <p className="text-[11px] text-center text-stone-500">
                 Paiement direct sécurisé : Carte Bancaire, PayPal ou Chèque postal
