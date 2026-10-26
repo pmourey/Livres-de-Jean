@@ -981,15 +981,16 @@ export default {
       });
     }
 
-    // Author Back-Office Auth: Login with master secret / author password
+    // Author Back-Office Auth: Login with master secret / author password (managed on server)
     if (pathname === '/api/admin/auth' && request.method === 'POST') {
       const body = await readJson(request);
       const secret = String(body?.secret || body?.password || '').trim();
-      const validSecret = env.ADMIN_SECRET || 'bibracte2026';
+      const configuredSecret = (env.ADMIN_SECRET || '').trim();
 
-      // Accept configured secret or default author passwords for historical platform
-      const allowedSecrets = [validSecret, 'bibracte2026', 'gergovie-mourey', 'mourey1889'];
-      if (!secret || !allowedSecrets.includes(secret)) {
+      // If ADMIN_SECRET is configured in Cloudflare (secrets or vars), enforce it strictly.
+      // If not yet set, fall back to author default secret on server side.
+      const isAuthorized = configuredSecret ? secret === configuredSecret : secret === 'bibracte2026';
+      if (!secret || !isAuthorized) {
         return json({ error: 'Clé secrète auteur incorrecte.' }, { status: 401 });
       }
 

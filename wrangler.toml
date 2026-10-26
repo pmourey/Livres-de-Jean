@@ -36,3 +36,9 @@ GMAIL_USER = "philippe.mourey@gmail.com"
 #   Décommentez l'une des variables ci-dessous et remplacez par votre code d'application à 16 lettres :
 # GMAIL_APP_PWD = "votre_mot_de_passe_app_16_caracteres"
 # MAIL_APP_PWD = "votre_mot_de_passe_app_16_caracteres"
+
+# Clé secrète de gestion auteur / Back-Office (gérée au niveau serveur) :
+# Option 1 (Recommandée pour production via secret chiffré Cloudflare) :
+#   npx wrangler secret put ADMIN_SECRET
+# Option 2 (Si dépôt privé) : Décommentez et définissez votre clé secrète ci-dessous :
+# ADMIN_SECRET = "votre_cle_secrete_auteur"

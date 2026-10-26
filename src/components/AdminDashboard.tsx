@@ -7,7 +7,7 @@ import { PAYMENTS_API_BASE } from '../config/commerce';
 import { 
   ShieldCheck, Package, DollarSign, Truck, AlertTriangle, Check, 
   Printer, Plus, Edit, Trash2, ArrowUpRight, Search, FileText, Send,
-  Lock, LogOut, KeyRound, Eye, EyeOff, Sparkles, ArrowLeft, Mail,
+  Lock, LogOut, KeyRound, Eye, EyeOff, ArrowLeft, Mail,
   HelpCircle, Terminal, Copy, Wrench, Power
 } from 'lucide-react';
 
@@ -42,14 +42,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   maintenanceMessage = "Les commandes et paiements d'ouvrages sont temporairement suspendus. La consultation du catalogue et la lecture des extraits restent disponibles.",
   onUpdateMaintenanceMessage
 }) => {
-  // Admin Session State
+  // Admin Session State: strictly validate token from server
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    return Boolean(sessionStorage.getItem('emile_mourey_admin_token'));
+    const token = sessionStorage.getItem('emile_mourey_admin_token');
+    return Boolean(token && token !== 'author-admin-session-local');
   });
   const [adminSecretInput, setAdminSecretInput] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  // Validate active session with server on component mount
+  React.useEffect(() => {
+    const token = sessionStorage.getItem('emile_mourey_admin_token');
+    if (!token) {
+      setIsAdminAuthenticated(false);
+      return;
+    }
+    if (token === 'author-admin-session-local') {
+      sessionStorage.removeItem('emile_mourey_admin_token');
+      setIsAdminAuthenticated(false);
+      return;
+    }
+
+    fetch(`${PAYMENTS_API_BASE}/api/admin/verify`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          sessionStorage.removeItem('emile_mourey_admin_token');
+          setIsAdminAuthenticated(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Session verification warning:', err);
+      });
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'orders' | 'books' | 'claims'>('orders');
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending_cheque' | 'to_ship' | 'delivered'>('all');
@@ -178,34 +206,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (response.ok) {
         const data = await response.json().catch(() => null);
-        const token = data?.token || 'author-admin-session-token';
+        const token = data?.token;
+        if (!token) {
+          throw new Error('Jeton de session non reçu du serveur.');
+        }
         sessionStorage.setItem('emile_mourey_admin_token', token);
         setIsAdminAuthenticated(true);
         setAdminSecretInput('');
         return;
       }
 
-      // Check fallback passwords locally in case worker secret differs or worker is unreachable
-      const allowedLocal = ['bibracte2026', 'gergovie-mourey', 'mourey1889'];
-      if (allowedLocal.includes(adminSecretInput.trim())) {
-        sessionStorage.setItem('emile_mourey_admin_token', 'author-admin-session-local');
-        setIsAdminAuthenticated(true);
-        setAdminSecretInput('');
-        return;
-      }
-
       const errData = await response.json().catch(() => null);
-      setAuthError(errData?.error || 'Clé secrète auteur invalide.');
-    } catch {
-      // Local fallback for offline / demo environments
-      const allowedLocal = ['bibracte2026', 'gergovie-mourey', 'mourey1889'];
-      if (allowedLocal.includes(adminSecretInput.trim())) {
-        sessionStorage.setItem('emile_mourey_admin_token', 'author-admin-session-local');
-        setIsAdminAuthenticated(true);
-        setAdminSecretInput('');
-        return;
-      }
-      setAuthError('Clé secrète incorrecte ou serveur inaccessible.');
+      setAuthError(errData?.error || 'Clé secrète auteur incorrecte. Accès refusé par le serveur.');
+    } catch (err: any) {
+      setAuthError(err?.message || 'Erreur de connexion au serveur d\'authentification auteur.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -321,22 +335,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </form>
 
-          {/* Demonstration Quick Fill */}
-          <div className="pt-4 border-t border-stone-200 text-center space-y-2">
-            <p className="text-[11px] text-stone-500">
-              Clé d'administration pour la démonstration :
+          {/* Protection et sécurité serveur */}
+          <div className="pt-4 border-t border-stone-200 text-center space-y-1">
+            <p className="text-[11px] text-stone-500 flex items-center justify-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Authentification et session vérifiées par le serveur Cloudflare</span>
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setAdminSecretInput('bibracte2026');
-                setAuthError('');
-              }}
-              className="text-xs font-mono text-stone-700 hover:text-[#8B1E2D] underline underline-offset-2 transition-colors inline-flex items-center gap-1"
-            >
-              <span>bibracte2026</span>
-              <Sparkles className="w-3 h-3 text-amber-600" />
-            </button>
           </div>
 
           {onExitAdmin && (
