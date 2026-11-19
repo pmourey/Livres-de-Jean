@@ -1514,8 +1514,8 @@ export default {
         maxOutputTokens: 1000
       };
       if (isGemini3OrNewer) {
-        // Use minimal thinking on Gemini 3/4 Flash to guarantee fast (<3s) responses and prevent Cloudflare 524 timeouts
-        generationConfig.thinkingConfig = { thinkingLevel: 'minimal' };
+        // Use low thinking level on Gemini 3.8/4 Flash for fast responses without Cloudflare 524 timeouts
+        generationConfig.thinkingConfig = { thinkingLevel: 'low' };
       }
 
       try {
