@@ -46,5 +46,5 @@ GMAIL_USER = "philippe.mourey@gmail.com"
 # Module Assistant IA (Google AI Pro / Gemini API) :
 # Clé API à stocker en secret chiffré Cloudflare (JAMAIS exposée côté navigateur) :
 #   npx wrangler secret put GEMINI_API_KEY
-GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 AI_BETA_FREE = "true"

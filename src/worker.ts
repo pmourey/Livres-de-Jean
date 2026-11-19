@@ -1507,18 +1507,19 @@ export default {
         `Question du lecteur : ${question}`
       ].join('\n');
 
-      const configuredModel = (env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+      const configuredModel = (env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
       const candidateModels = Array.from(
-        new Set([configuredModel, 'gemini-3.8-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash-lite'])
+        new Set([configuredModel, 'gemini-3.5-flash-lite', 'gemini-3.8-flash'])
       );
 
       const callGeminiStreaming = async (targetModel: string): Promise<{ ok: boolean; status: number; text?: string; error?: string }> => {
+        const isLiteModel = /lite/i.test(targetModel);
         const isGemini3OrNewer = /^gemini-[34]/i.test(targetModel);
         const generationConfig: Record<string, unknown> = {
           temperature: 0.25,
           maxOutputTokens: 900
         };
-        if (isGemini3OrNewer) {
+        if (isGemini3OrNewer && !isLiteModel) {
           generationConfig.thinkingConfig = { thinkingLevel: 'low' };
         }
 
