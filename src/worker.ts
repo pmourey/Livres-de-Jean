@@ -1467,16 +1467,16 @@ export default {
 
       const mode = retrievedChunks.length > 0 ? 'd1_literal' : 'catalog_synthesis';
 
-      // Build grounded documentary context for Gemini (compact to keep response < 3s)
+      // Build grounded documentary context for Gemini (compact to keep response fast)
       const contextBlocks =
         retrievedChunks.length > 0
-          ? retrievedChunks.slice(0, 6).map(
+          ? retrievedChunks.slice(0, 5).map(
               (c, idx) =>
-                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1200)}`
+                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1000)}`
             )
-          : fallbackContext.map(
+          : fallbackContext.slice(0, 4).map(
               (fc: any, idx: number) =>
-                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${String(fc.excerpt || '').slice(0, 1400)}`
+                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${String(fc.excerpt || '').slice(0, 950)}`
             );
 
       const systemInstruction = [
@@ -1507,51 +1507,116 @@ export default {
         `Question du lecteur : ${question}`
       ].join('\n');
 
-      const model = (env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
-      const isGemini3OrNewer = /^gemini-[34]/i.test(model);
-      const generationConfig: Record<string, unknown> = {
-        temperature: 0.25,
-        maxOutputTokens: 1000
-      };
-      if (isGemini3OrNewer) {
-        // Use low thinking level on Gemini 3.8/4 Flash for fast responses without Cloudflare 524 timeouts
-        generationConfig.thinkingConfig = { thinkingLevel: 'low' };
-      }
+      const configuredModel = (env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+      const candidateModels = Array.from(
+        new Set([configuredModel, 'gemini-3.8-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash-lite'])
+      );
 
-      try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': env.GEMINI_API_KEY
-            },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemInstruction }] },
-              contents: [
-                ...conversationTurns,
-                { role: 'user', parts: [{ text: userPromptWithSources }] }
-              ],
-              generationConfig
-            })
-          }
-        );
-
-        const geminiData = await geminiRes.json().catch(() => null);
-        if (!geminiRes.ok) {
-          const errMsg =
-            geminiRes.status === 524 || geminiRes.status === 504
-              ? "Le service Gemini a mis trop de temps à répondre (timeout 524). Veuillez réessayer votre question."
-              : geminiData?.error?.message || `Erreur API Gemini (${geminiRes.status})`;
-          return json({ error: errMsg }, { status: 502 });
+      const callGeminiStreaming = async (targetModel: string): Promise<{ ok: boolean; status: number; text?: string; error?: string }> => {
+        const isGemini3OrNewer = /^gemini-[34]/i.test(targetModel);
+        const generationConfig: Record<string, unknown> = {
+          temperature: 0.25,
+          maxOutputTokens: 900
+        };
+        if (isGemini3OrNewer) {
+          generationConfig.thinkingConfig = { thinkingLevel: 'low' };
         }
 
-        const answerText =
-          geminiData?.candidates?.[0]?.content?.parts
-            ?.map((p: any) => p?.text || '')
-            .join('')
-            .trim() || "Je n'ai pas pu formuler de réponse à partir des extraits disponibles.";
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 25000);
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(targetModel)}:streamGenerateContent?alt=sse`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': env.GEMINI_API_KEY!
+              },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                contents: [
+                  ...conversationTurns,
+                  { role: 'user', parts: [{ text: userPromptWithSources }] }
+                ],
+                generationConfig
+              }),
+              signal: controller.signal
+            }
+          );
+
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => null);
+            return {
+              ok: false,
+              status: res.status,
+              error: errJson?.error?.message || `Erreur API Gemini (${res.status})`
+            };
+          }
+
+          const rawSse = await res.text();
+          let combined = '';
+          for (const line of rawSse.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const jsonStr = trimmed.slice(5).trim();
+            if (!jsonStr || jsonStr === '[DONE]') continue;
+            try {
+              const chunk = JSON.parse(jsonStr);
+              const parts = chunk?.candidates?.[0]?.content?.parts || [];
+              for (const p of parts) {
+                if (typeof p?.text === 'string' && !p?.thought) {
+                  combined += p.text;
+                }
+              }
+            } catch {
+              // ignore partial SSE lines
+            }
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            text: combined.trim()
+          };
+        } catch (err: any) {
+          const isAbort = err?.name === 'AbortError';
+          return {
+            ok: false,
+            status: isAbort ? 504 : 500,
+            error: isAbort
+              ? `Délai dépassé sur ${targetModel} (>25s)`
+              : err?.message || `Erreur réseau sur ${targetModel}`
+          };
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      try {
+        let answerText = '';
+        let usedModel = configuredModel;
+        let lastError = 'Impossible de joindre le service Gemini.';
+
+        for (const candidate of candidateModels) {
+          const result = await callGeminiStreaming(candidate);
+          if (result.ok && result.text) {
+            answerText = result.text;
+            usedModel = candidate;
+            break;
+          }
+          lastError = result.error || lastError;
+          // Only stop immediately on auth/quota errors (401/403/429)
+          if (result.status === 401 || result.status === 403 || result.status === 429) {
+            return json({ error: lastError }, { status: result.status });
+          }
+        }
+
+        if (!answerText) {
+          return json({ error: lastError }, { status: 502 });
+        }
+
+        const model = usedModel;
 
         // Deduplicate cited references for clickable UI pills
         const refsMap = new Map<string, { bookId: string; title: string; tome: string; pages: number[] }>();
