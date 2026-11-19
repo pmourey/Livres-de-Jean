@@ -141,6 +141,22 @@ async function ensureTables(db?: D1Database) {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS academic_chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        hal_id TEXT NOT NULL UNIQUE,
+        doc_type TEXT NOT NULL DEFAULT 'article',
+        theme TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL,
+        authors TEXT NOT NULL DEFAULT '',
+        published_year TEXT DEFAULT '',
+        journal_or_institution TEXT DEFAULT '',
+        source_url TEXT NOT NULL,
+        pdf_url TEXT DEFAULT '',
+        content TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
   } catch (err) {
     console.warn('ensureTables warning:', err);
   }
@@ -1296,6 +1312,7 @@ export default {
       let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
       let indexedChunksCount = 0;
       let indexedAgoravoxCount = 0;
+      let indexedAcademicCount = 0;
 
       if (env.DB) {
         await ensureTables(env.DB);
@@ -1308,6 +1325,8 @@ export default {
         indexedChunksCount = Number(countRow?.cnt || 0);
         const avCountRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM agoravox_chunks').first<{ cnt: number }>().catch(() => null);
         indexedAgoravoxCount = Number(avCountRow?.cnt || 0);
+        const acadCountRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM academic_chunks').first<{ cnt: number }>().catch(() => null);
+        indexedAcademicCount = Number(acadCountRow?.cnt || 0);
       }
 
       const isActive = Boolean(sub && sub.status === 'active');
@@ -1320,6 +1339,7 @@ export default {
         betaFreeEnabled,
         indexedChunksCount,
         indexedAgoravoxCount,
+        indexedAcademicCount,
         geminiConfigured: Boolean(env.GEMINI_API_KEY)
       });
     }
@@ -1402,7 +1422,7 @@ export default {
       const body = await readJson(request);
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
-      const sourceScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox'
+      const sourceScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox' | 'academic'
       const history = Array.isArray(body?.history) ? body.history.slice(-10) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
@@ -1410,7 +1430,7 @@ export default {
         return json({ error: 'Question invalide (entre 1 et 1 000 caractères).' }, { status: 400 });
       }
 
-      // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + agoravox_chunks via FTS5)
+      // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + agoravox_chunks + academic_chunks via FTS5)
       type ChunkRow = {
         id?: number;
         book_id: string;
@@ -1430,9 +1450,23 @@ export default {
         published_date: string;
         content: string;
       };
+      type AcademicRow = {
+        id?: number;
+        hal_id: string;
+        doc_type: string;
+        theme: string;
+        title: string;
+        authors: string;
+        published_year: string;
+        journal_or_institution: string;
+        source_url: string;
+        pdf_url: string;
+        content: string;
+      };
 
       let retrievedChunks: ChunkRow[] = [];
       let retrievedAgoravox: AgoraVoxRow[] = [];
+      let retrievedAcademic: AcademicRow[] = [];
 
       if (env.DB) {
         const stopWords = new Set([
@@ -1441,7 +1475,8 @@ export default {
           'emile', 'mourey', 'auteur', 'livre', 'livres', 'ouvrage', 'ouvrages',
           'position', 'theorie', 'these', 'theses', 'son', 'ses', 'leur', 'leurs',
           'cette', 'cet', 'ces', 'aux', 'mais', 'plus', 'etre', 'fait', 'avoir',
-          'article', 'articles', 'agoravox', 'commentaire', 'commentaires', 'situe'
+          'article', 'articles', 'agoravox', 'commentaire', 'commentaires', 'situe',
+          'scientifique', 'scientifiques', 'universitaire', 'consensus', 'archeologique'
         ]);
         const keywords = question
           .toLowerCase()
@@ -1456,8 +1491,8 @@ export default {
         const ftsAndQuery = safeTerms.length >= 2 ? safeTerms.slice(0, 3).join(' AND ') : safeTerms.join(' OR ');
         const ftsOrQuery = safeTerms.join(' OR ');
 
-        // 1A. Search literal book_chunks (unless scope === 'agoravox')
-        if (keywords.length > 0 && sourceScope !== 'agoravox') {
+        // 1A. Search literal book_chunks (when scope is 'all' or 'books')
+        if (keywords.length > 0 && (sourceScope === 'all' || sourceScope === 'books')) {
           try {
             const seenBookRowIds = new Set<number>();
             const rawMatches: ChunkRow[] = [];
@@ -1532,8 +1567,8 @@ export default {
           }
         }
 
-        // 1B. Search AgoraVox articles & comments (unless scope === 'books' or bookIdFilter is set)
-        if (keywords.length > 0 && sourceScope !== 'books' && !bookIdFilter) {
+        // 1B. Search AgoraVox articles & comments (when scope is 'all' or 'agoravox')
+        if (keywords.length > 0 && (sourceScope === 'all' || sourceScope === 'agoravox') && !bookIdFilter) {
           try {
             const seenAvIds = new Set<number>();
             const avMatches: AgoraVoxRow[] = [];
@@ -1578,9 +1613,61 @@ export default {
               }
             }
 
-            retrievedAgoravox = avMatches.slice(0, sourceScope === 'agoravox' ? 8 : 5);
+            retrievedAgoravox = avMatches.slice(0, sourceScope === 'agoravox' ? 8 : 4);
           } catch {
             retrievedAgoravox = [];
+          }
+        }
+
+        // 1C-bis. Search peer-reviewed scientific & archaeological publications (CNRS HAL-SHS / Gallia / Persée)
+        if (keywords.length > 0 && (sourceScope === 'all' || sourceScope === 'academic') && !bookIdFilter) {
+          try {
+            const seenAcadIds = new Set<number>();
+            const acadMatches: AcademicRow[] = [];
+
+            if (safeTerms.length >= 2) {
+              const acadAndRes = await env.DB.prepare(
+                `SELECT ac.id, ac.hal_id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.pdf_url, ac.content
+                 FROM academic_chunks_fts fts
+                 JOIN academic_chunks ac ON ac.id = fts.rowid
+                 WHERE academic_chunks_fts MATCH ?
+                 ORDER BY rank
+                 LIMIT 6`
+              )
+                .bind(ftsAndQuery)
+                .all<AcademicRow>()
+                .catch(() => ({ results: [] }));
+              for (const row of acadAndRes.results || []) {
+                if (row.id && !seenAcadIds.has(row.id)) {
+                  seenAcadIds.add(row.id);
+                  acadMatches.push(row);
+                }
+              }
+            }
+
+            if (acadMatches.length < 5) {
+              const acadOrRes = await env.DB.prepare(
+                `SELECT ac.id, ac.hal_id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.pdf_url, ac.content
+                 FROM academic_chunks_fts fts
+                 JOIN academic_chunks ac ON ac.id = fts.rowid
+                 WHERE academic_chunks_fts MATCH ?
+                 ORDER BY rank
+                 LIMIT 8`
+              )
+                .bind(ftsOrQuery)
+                .all<AcademicRow>()
+                .catch(() => ({ results: [] }));
+              for (const row of acadOrRes.results || []) {
+                if (row.id && !seenAcadIds.has(row.id)) {
+                  seenAcadIds.add(row.id);
+                  acadMatches.push(row);
+                }
+              }
+            }
+
+            retrievedAcademic = acadMatches.slice(0, sourceScope === 'academic' ? 8 : 4);
+          } catch {
+            retrievedAcademic = [];
           }
         }
       }
@@ -1660,11 +1747,14 @@ export default {
       }
 
       const mode =
-        retrievedChunks.length > 0 || retrievedAgoravox.length > 0 || communitySummaryBlock
+        retrievedChunks.length > 0 ||
+        retrievedAgoravox.length > 0 ||
+        retrievedAcademic.length > 0 ||
+        communitySummaryBlock
           ? 'd1_literal'
           : 'catalog_synthesis';
 
-      // Build grounded documentary context for Gemini (books + AgoraVox + optional community analytics)
+      // Build grounded documentary context for Gemini (books + AgoraVox + peer-reviewed scientific publications + optional community analytics)
       const bookContextBlocks = retrievedChunks.map(
         (c, idx) =>
           `Source Livre ${idx + 1} — Ouvrage : ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}\n${String(c.content || '').slice(0, 1000)}`
@@ -1675,12 +1765,21 @@ export default {
           `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article d’Émile Mourey'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`
       );
 
+      const academicContextBlocks = retrievedAcademic.map(
+        (ac, idx) =>
+          `Source Scientifique / Archéologique Officielle ${idx + 1} — [${ac.doc_type}] ${ac.title} | Auteurs : ${ac.authors}${ac.published_year ? ` (${ac.published_year})` : ''}${ac.journal_or_institution ? ` | Publication/Institution : ${ac.journal_or_institution}` : ''} | URL : ${ac.source_url}\n${String(ac.content || '').slice(0, 900)}`
+      );
+
       const contextBlocks =
-        bookContextBlocks.length > 0 || agoravoxContextBlocks.length > 0 || communitySummaryBlock
+        bookContextBlocks.length > 0 ||
+        agoravoxContextBlocks.length > 0 ||
+        academicContextBlocks.length > 0 ||
+        communitySummaryBlock
           ? [
               ...(communitySummaryBlock ? [communitySummaryBlock] : []),
               ...bookContextBlocks,
-              ...agoravoxContextBlocks
+              ...agoravoxContextBlocks,
+              ...academicContextBlocks
             ]
           : fallbackContext.slice(0, 4).map(
               (fc: any, idx: number) =>
@@ -1689,13 +1788,13 @@ export default {
 
       const systemInstruction = [
         "Tu es l'assistant documentaire officiel des Éditions Émile Mourey.",
-        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses ouvrages et à ses articles/débats publiés sur AgoraVox.",
+        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses ouvrages et à ses articles/débats publiés sur AgoraVox, tout en les mettant en perspective avec les publications scientifiques et rapports de fouilles archéologiques officiels (CNRS, HAL-SHS, INRAP, revue Gallia, thèses universitaires) fournis dans les sources.",
         'Règles impératives :',
-        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres, statistiques et extraits AgoraVox fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
-        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; pour chaque article ou commentaire AgoraVox cité, insère un lien Markdown cliquable au format [Titre ou Commentaire](URL_EXACTE) en utilisant STRICTEMENT l'URL fournie dans la source.",
-        "3. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [AGORAVOX 2] ou [LIVRE 1] dans ta réponse.",
-        "4. Distingue clairement ce qui provient des ouvrages d'Émile Mourey, de ses articles AgoraVox et des réactions ou apports des commentateurs AgoraVox.",
-        "5. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
+        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres, extraits AgoraVox et publications scientifiques fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
+        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; pour chaque article/commentaire AgoraVox ou publication scientifique officielle cités, insère un lien Markdown cliquable au format [Titre ou Auteur (Année)](URL_EXACTE) en utilisant STRICTEMENT l'URL fournie dans la source.",
+        "3. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [LIVRE 1] ou [Source Scientifique 1] dans ta réponse.",
+        "4. Distingue clairement trois niveaux : (a) la thèse d'Émile Mourey dans ses ouvrages et articles AgoraVox, (b) les échanges avec les lecteurs sur AgoraVox, et (c) l'état de la recherche archéologique et universitaire officielle (fouilles, thèses, articles CNRS/HAL/Gallia).",
+        "5. Lorsque des Sources Scientifiques / Archéologiques Officielles sont présentes, cite explicitement les chercheurs, rapports de fouilles ou thèses correspondants avec leur lien cliquable pour éclairer loyalement le point de débat.",
         '6. Réponds en français soigné, structuré avec des titres clairs, des citations et des puces lisibles.'
       ].join('\n');
 
@@ -1882,13 +1981,40 @@ export default {
           }
         }
 
+        // Deduplicate peer-reviewed Academic / Archaeological references (CNRS HAL-SHS / Persée / Gallia)
+        const acadRefsMap = new Map<
+          string,
+          {
+            docType: string;
+            title: string;
+            authors: string;
+            year: string;
+            journal: string;
+            url: string;
+          }
+        >();
+        for (const ac of retrievedAcademic) {
+          if (ac.source_url && !acadRefsMap.has(ac.source_url)) {
+            acadRefsMap.set(ac.source_url, {
+              docType: ac.doc_type,
+              title: ac.title,
+              authors: ac.authors,
+              year: ac.published_year || '',
+              journal: ac.journal_or_institution || '',
+              url: ac.source_url
+            });
+          }
+        }
+
         return json({
           ok: true,
           answer: answerText,
           references: Array.from(refsMap.values()),
           agoravoxReferences: Array.from(avRefsMap.values()),
+          academicReferences: Array.from(acadRefsMap.values()),
           indexedChunksUsed: retrievedChunks.length,
           indexedAgoravoxUsed: retrievedAgoravox.length,
+          indexedAcademicUsed: retrievedAcademic.length,
           mode,
           model
         });

@@ -13,5 +13,7 @@ pdfs/
 migrations/0003_seed_book_chunks.sql
 migrations/0005_seed_agoravox*.sql
 migrations/0006_seed_agoravox*.sql
+migrations/0009_seed_academic*.sql
+
 
 

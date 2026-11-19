@@ -23,7 +23,8 @@ import {
   Trash2,
   Copy,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  GraduationCap
 } from 'lucide-react';
 
 interface AiReference {
@@ -41,15 +42,26 @@ interface AgoraVoxReference {
   url: string;
 }
 
+interface AcademicReference {
+  docType: string;
+  title: string;
+  authors: string;
+  year?: string;
+  journal?: string;
+  url: string;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
   references?: AiReference[];
   agoravoxReferences?: AgoraVoxReference[];
+  academicReferences?: AcademicReference[];
   mode?: 'd1_literal' | 'catalog_synthesis';
   indexedChunksUsed?: number;
   indexedAgoravoxUsed?: number;
+  indexedAcademicUsed?: number;
   model?: string;
   timestamp: string;
 }
@@ -297,6 +309,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   );
   const [indexedChunksCount, setIndexedChunksCount] = useState<number>(0);
   const [indexedAgoravoxCount, setIndexedAgoravoxCount] = useState<number>(0);
+  const [indexedAcademicCount, setIndexedAcademicCount] = useState<number>(0);
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [isActivating, setIsActivating] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
@@ -468,6 +481,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
           setSubPlan(data?.plan || null);
           setIndexedChunksCount(Number(data?.indexedChunksCount || 0));
           setIndexedAgoravoxCount(Number(data?.indexedAgoravoxCount || 0));
+          setIndexedAcademicCount(Number(data?.indexedAcademicCount || 0));
           setGeminiConfigured(typeof data?.geminiConfigured === 'boolean' ? data.geminiConfigured : null);
           if (data?.subscribed) {
             localStorage.setItem('emile_mourey_ai_beta_sub', 'active');
@@ -525,7 +539,11 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
    */
   const buildFallbackContext = (query: string) => {
     const q = query.toLowerCase();
-    const isSpecificBook = selectedScope !== 'all' && selectedScope !== 'books' && selectedScope !== 'agoravox';
+    const isSpecificBook =
+      selectedScope !== 'all' &&
+      selectedScope !== 'books' &&
+      selectedScope !== 'agoravox' &&
+      selectedScope !== 'academic';
     const targetBooks = isSpecificBook
       ? books.filter((b) => b.id === selectedScope)
       : books;
@@ -647,11 +665,17 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         body: JSON.stringify({
           question: q,
           sourceScope:
-            selectedScope === 'all' || selectedScope === 'books' || selectedScope === 'agoravox'
+            selectedScope === 'all' ||
+            selectedScope === 'books' ||
+            selectedScope === 'agoravox' ||
+            selectedScope === 'academic'
               ? selectedScope
               : 'books',
           bookId:
-            selectedScope !== 'all' && selectedScope !== 'books' && selectedScope !== 'agoravox'
+            selectedScope !== 'all' &&
+            selectedScope !== 'books' &&
+            selectedScope !== 'agoravox' &&
+            selectedScope !== 'academic'
               ? selectedScope
               : undefined,
           history: currentHistory,
@@ -679,9 +703,11 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         text: data.answer,
         references: Array.isArray(data.references) ? data.references : [],
         agoravoxReferences: Array.isArray(data.agoravoxReferences) ? data.agoravoxReferences : [],
+        academicReferences: Array.isArray(data.academicReferences) ? data.academicReferences : [],
         mode: data.mode,
         indexedChunksUsed: data.indexedChunksUsed,
         indexedAgoravoxUsed: data.indexedAgoravoxUsed,
+        indexedAcademicUsed: data.indexedAcademicUsed,
         model: data.model,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
@@ -740,9 +766,9 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             <span className="inline-flex items-center gap-1.5">
               <Database className="w-4 h-4 text-[#D4AF37]" />
               <span>
-                {indexedChunksCount > 0 || indexedAgoravoxCount > 0
-                  ? `${indexedChunksCount.toLocaleString('fr-FR')} passages PDF + ${indexedAgoravoxCount.toLocaleString('fr-FR')} extraits AgoraVox indexés`
-                  : 'Mode RAG prêt (index littéral D1 + AgoraVox)'}
+                {indexedChunksCount > 0 || indexedAgoravoxCount > 0 || indexedAcademicCount > 0
+                  ? `${indexedChunksCount.toLocaleString('fr-FR')} passages PDF + ${indexedAgoravoxCount.toLocaleString('fr-FR')} extraits AgoraVox + ${indexedAcademicCount.toLocaleString('fr-FR')} publications scientifiques (CNRS/HAL/Gallia)`
+                  : 'Mode RAG prêt (Ouvrages + AgoraVox + Publications scientifiques CNRS/HAL)'}
               </span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -828,7 +854,8 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
 
                       {msg.role === 'model' &&
                         ((msg.references && msg.references.length > 0) ||
-                          (msg.agoravoxReferences && msg.agoravoxReferences.length > 0)) && (
+                          (msg.agoravoxReferences && msg.agoravoxReferences.length > 0) ||
+                          (msg.academicReferences && msg.academicReferences.length > 0)) && (
                           <div className="pt-3 border-t border-stone-100 space-y-2">
                             {msg.references && msg.references.length > 0 && (
                               <div className="flex flex-wrap gap-2">
@@ -873,6 +900,27 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                                         : `AgoraVox — ${av.title}`}
                                     </span>
                                     <ExternalLink className="w-3 h-3 shrink-0 text-amber-700" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                            {msg.academicReferences && msg.academicReferences.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {msg.academicReferences.map((ac, idx) => (
+                                  <a
+                                    key={`${ac.url}-${idx}`}
+                                    href={ac.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 rounded text-[11px] font-medium transition-colors"
+                                    title={`${ac.title} — ${ac.authors}${ac.year ? ` (${ac.year})` : ''}`}
+                                  >
+                                    <GraduationCap className="w-3 h-3 shrink-0 text-emerald-800" />
+                                    <span className="max-w-[280px] truncate">
+                                      [{ac.docType}] {ac.title}
+                                      {ac.year ? ` (${ac.year})` : ''}
+                                    </span>
+                                    <ExternalLink className="w-3 h-3 shrink-0 text-emerald-700" />
                                   </a>
                                 ))}
                               </div>
@@ -1021,9 +1069,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                   onChange={(e) => setSelectedScope(e.target.value)}
                   className="px-2.5 py-1.5 bg-[#FAF8F5] border border-stone-300 rounded-md text-xs text-stone-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8B1E2D] max-w-xs"
                 >
-                  <option value="all">Toute la base (Ouvrages + AgoraVox)</option>
-                  <option value="books">Uniquement les ouvrages</option>
+                  <option value="all">Toute la base (Ouvrages + AgoraVox + CNRS/HAL)</option>
+                  <option value="books">Uniquement les ouvrages d'Émile Mourey</option>
                   <option value="agoravox">Uniquement AgoraVox (articles & commentaires)</option>
+                  <option value="academic">Uniquement les publications scientifiques (CNRS / HAL / Gallia)</option>
                   <optgroup label="Filtrer par ouvrage">
                     {books.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -1227,7 +1276,8 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
 
                         {msg.role === 'model' &&
                           ((msg.references && msg.references.length > 0) ||
-                            (msg.agoravoxReferences && msg.agoravoxReferences.length > 0)) && (
+                            (msg.agoravoxReferences && msg.agoravoxReferences.length > 0) ||
+                            (msg.academicReferences && msg.academicReferences.length > 0)) && (
                             <div className="pt-3 border-t border-stone-100 space-y-2.5">
                               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
                                 <span className="font-semibold text-stone-700 flex items-center gap-1">
@@ -1236,7 +1286,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                                 </span>
                                 <span className="font-mono text-[10px] bg-stone-100 px-2 py-0.5 rounded">
                                   {msg.mode === 'd1_literal'
-                                    ? `${msg.indexedChunksUsed || 0} liv. · ${msg.indexedAgoravoxUsed || 0} AgoraVox`
+                                    ? `${msg.indexedChunksUsed || 0} liv. · ${msg.indexedAgoravoxUsed || 0} AgoraVox · ${msg.indexedAcademicUsed || 0} CNRS/HAL`
                                     : 'Synthèse catalogue & dossiers'}
                                 </span>
                               </div>
@@ -1286,6 +1336,28 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                                           : `AgoraVox — ${av.title}`}
                                       </span>
                                       <ExternalLink className="w-3 h-3 shrink-0 text-amber-700" />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+
+                              {msg.academicReferences && msg.academicReferences.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-0.5">
+                                  {msg.academicReferences.map((ac, idx) => (
+                                    <a
+                                      key={`${ac.url}-${idx}`}
+                                      href={ac.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 rounded text-[11px] font-medium transition-colors"
+                                      title={`${ac.title} — ${ac.authors}${ac.year ? ` (${ac.year})` : ''}${ac.journal ? ` · ${ac.journal}` : ''}`}
+                                    >
+                                      <GraduationCap className="w-3 h-3 shrink-0 text-emerald-800" />
+                                      <span className="max-w-[290px] truncate">
+                                        [{ac.docType}] {ac.title}
+                                        {ac.year ? ` (${ac.year})` : ''}
+                                      </span>
+                                      <ExternalLink className="w-3 h-3 shrink-0 text-emerald-700" />
                                     </a>
                                   ))}
                                 </div>
