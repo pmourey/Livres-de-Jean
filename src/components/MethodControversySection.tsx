@@ -513,7 +513,7 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
         </p>
       </section>
 
-      {/* Dossiers d'Études complets (7 dossiers croisant ouvrages, AgoraVox & synthèse Gemini) */}
+      {/* Dossiers d'Études complets (7 dossiers croisant ouvrages & AgoraVox) */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-200 pb-4">
           <div className="space-y-1">
@@ -528,18 +528,6 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
               Explorez l'ensemble des grands dossiers de la collection d'Émile Mourey — de la Guerre des Gaules à l'art roman bourguignon et à l'analyse des textes sacrés — avec leurs contrepoints académiques et les ouvrages correspondants.
             </p>
           </div>
-
-          <a
-            href="https://share.gemini.google/YIUWi817BCBE"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#F5F1E9] hover:bg-stone-200/80 text-stone-800 border border-stone-300 rounded-md text-xs font-semibold transition-colors shrink-0 self-start md:self-auto"
-            title="Consulter la synthèse éditoriale complète de la collection sur Gemini"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
-            <span>Synthèse d'étude Gemini</span>
-            <ExternalLink className="w-3 h-3 text-stone-500" />
-          </a>
         </div>
 
         {/* Filtres thématiques */}
