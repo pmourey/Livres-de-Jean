@@ -21,6 +21,7 @@ import { CustomerDashboard } from './components/CustomerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthorSection } from './components/AuthorSection';
 import { MethodControversySection } from './components/MethodControversySection';
+import { AiAssistantSection } from './components/AiAssistantSection';
 import { LegalCharterPage } from './components/LegalCharterPage';
 import { LegalModal } from './components/LegalModals';
 import { Footer } from './components/Footer';
@@ -33,8 +34,8 @@ export default function App() {
     return path.endsWith('/admin/moderation') || hash.includes('/admin/moderation');
   };
 
-  // Navigation View: 'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
-  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() =>
+  // Navigation View: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
+  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() =>
     isModerationPath() ? 'admin' : 'catalog'
   );
   const [adminInitialTab, setAdminInitialTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(() =>
@@ -684,6 +685,8 @@ export default function App() {
 
         {currentView === 'method' && (
           <MethodControversySection
+            books={books}
+            onSelectBook={(book) => setSelectedBook(book)}
             onNavigateCatalog={() => {
               setCurrentView('catalog');
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -698,6 +701,23 @@ export default function App() {
             }}
             customerToken={customerToken}
             defaultAuthorName={`${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()}
+          />
+        )}
+
+        {currentView === 'ai' && (
+          <AiAssistantSection
+            books={books}
+            customerToken={customerToken}
+            customerEmail={currentUser?.email}
+            onSelectBook={(book) => setSelectedBook(book)}
+            onNavigateAccount={() => {
+              setCurrentView('account');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateMethod={() => {
+              setCurrentView('method');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 
@@ -844,6 +864,10 @@ export default function App() {
         }}
         onNavigateMethod={() => {
           setCurrentView('method');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateAi={() => {
+          setCurrentView('ai');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onNavigateLegalPage={() => {

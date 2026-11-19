@@ -1,10 +1,10 @@
 import React from 'react';
-import { ShoppingBag, User, ShieldCheck, Lock, AlertTriangle, Wrench } from 'lucide-react';
+import { ShoppingBag, User, ShieldCheck, Lock, AlertTriangle, Wrench, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   cartCount: number;
   onOpenCart: () => void;
-  onNavigate: (view: 'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin') => void;
+  onNavigate: (view: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin') => void;
   currentView: string;
   isMaintenanceMode?: boolean;
   maintenanceMessage?: string;
@@ -84,6 +84,15 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Méthode & Controverse
+          </button>
+          <button
+            onClick={() => onNavigate('ai')}
+            className={`inline-flex items-center gap-1 transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
+              currentView === 'ai' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
+            <span>Assistant IA</span>
           </button>
           <button
             onClick={() => onNavigate('author')}
@@ -177,6 +186,15 @@ export const Header: React.FC<HeaderProps> = ({
           }`}
         >
           Méthode & Controverse
+        </button>
+        <button
+          onClick={() => onNavigate('ai')}
+          className={`inline-flex items-center gap-1 whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'ai' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          <Sparkles className="w-3 h-3 text-[#8B1E2D]" />
+          <span>Assistant IA</span>
         </button>
         <button
           onClick={() => onNavigate('author')}

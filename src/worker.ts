@@ -50,6 +50,9 @@ export interface Env {
   MAIL_USER?: string;
   GMAIL_APP_PWD?: string;
   MAIL_APP_PWD?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
+  AI_BETA_FREE?: string;
 }
 
 async function ensureTables(db?: D1Database) {
@@ -104,6 +107,29 @@ async function ensureTables(db?: D1Database) {
     await db.prepare(`
       CREATE INDEX IF NOT EXISTS idx_comments_slug_status
       ON comments (target_slug, status, created_at DESC)
+    `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ai_subscriptions (
+        user_id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        plan TEXT NOT NULL DEFAULT 'beta_free',
+        status TEXT NOT NULL DEFAULT 'active',
+        activated_at TEXT NOT NULL,
+        expires_at TEXT
+      )
+    `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS book_chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id TEXT NOT NULL,
+        book_title TEXT NOT NULL,
+        tome TEXT DEFAULT '',
+        page_number INTEGER NOT NULL DEFAULT 0,
+        chapter TEXT DEFAULT '',
+        chunk_index INTEGER NOT NULL DEFAULT 0,
+        content TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
     `).run();
   } catch (err) {
     console.warn('ensureTables warning:', err);
@@ -1036,6 +1062,26 @@ export default {
       return json({ ok: true, role: 'admin' });
     }
 
+    // Author Back-Office: List PDF objects in R2 bucket `ebooks-jean` (for literal D1 indexing)
+    if (pathname === '/api/admin/r2-list' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const verified = token ? await verifyAdminToken(env, token) : null;
+      if (!verified || verified.role !== 'admin') {
+        return json({ error: 'Accès refusé : rôle administrateur requis.' }, { status: 403 });
+      }
+      const r2Bucket = env.PDFS || env.BUCKET;
+      if (!r2Bucket?.list) {
+        return json({ error: 'Bucket R2 non configuré.' }, { status: 500 });
+      }
+      const listed = await r2Bucket.list({ prefix: '' });
+      const objects = (listed.objects || []).map((o: any) => ({
+        key: o.key,
+        size: o.size ?? 0,
+        uploaded: o.uploaded ?? null
+      }));
+      return json({ ok: true, bucket: 'ebooks-jean', count: objects.length, objects });
+    }
+
     // =========================================================================
     // MODERATED COMMENTS API (A-priori moderation, isolated `comments` table)
     // =========================================================================
@@ -1220,6 +1266,322 @@ export default {
       } catch (err) {
         console.error('PATCH /api/admin/comments/:id error:', err);
         return json({ error: 'Erreur lors de la modération du commentaire.' }, { status: 500 });
+      }
+    }
+
+    // =========================================================================
+    // AI DOCUMENTARY ASSISTANT API (Subscription-gated + Gemini + D1 literal RAG)
+    // =========================================================================
+
+    // Authenticated customer: GET /api/ai/subscription -> check subscription & index stats
+    if (pathname === '/api/ai/subscription' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Authentification requise.' }, { status: 401 });
+      }
+
+      const betaFreeEnabled = env.AI_BETA_FREE !== 'false';
+      const userId = customerIdFromEmail(session.email);
+      let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
+      let indexedChunksCount = 0;
+
+      if (env.DB) {
+        await ensureTables(env.DB);
+        sub = await env.DB.prepare(
+          'SELECT plan, status, activated_at, expires_at FROM ai_subscriptions WHERE user_id = ?'
+        )
+          .bind(userId)
+          .first<{ plan: string; status: string; activated_at: string; expires_at?: string | null }>();
+        const countRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM book_chunks').first<{ cnt: number }>().catch(() => null);
+        indexedChunksCount = Number(countRow?.cnt || 0);
+      }
+
+      const isActive = Boolean(sub && sub.status === 'active');
+      return json({
+        ok: true,
+        subscribed: isActive,
+        plan: sub?.plan || null,
+        status: sub?.status || 'none',
+        activatedAt: sub?.activated_at || null,
+        betaFreeEnabled,
+        indexedChunksCount,
+        geminiConfigured: Boolean(env.GEMINI_API_KEY)
+      });
+    }
+
+    // Authenticated customer: POST /api/ai/subscription/activate-beta -> free test subscription
+    if (pathname === '/api/ai/subscription/activate-beta' && request.method === 'POST') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Authentification requise pour activer votre abonnement.' }, { status: 401 });
+      }
+
+      if (env.AI_BETA_FREE === 'false') {
+        return json(
+          { error: "La phase d'abonnement gratuit de test est terminée. Veuillez souscrire un abonnement actif." },
+          { status: 402 }
+        );
+      }
+
+      const userId = customerIdFromEmail(session.email);
+      const activatedAt = new Date().toISOString();
+      if (env.DB) {
+        await ensureTables(env.DB);
+        await env.DB.prepare(
+          `INSERT INTO ai_subscriptions (user_id, email, plan, status, activated_at, expires_at)
+           VALUES (?, ?, 'beta_free', 'active', ?, NULL)
+           ON CONFLICT(user_id) DO UPDATE SET plan='beta_free', status='active', activated_at=excluded.activated_at`
+        )
+          .bind(userId, session.email.toLowerCase(), activatedAt)
+          .run();
+      }
+
+      return json({
+        ok: true,
+        subscribed: true,
+        plan: 'beta_free',
+        status: 'active',
+        activatedAt,
+        message: 'Abonnement IA (Phase de test — Offert) activé sur votre compte.'
+      });
+    }
+
+    // Authenticated & Subscribed customer: POST /api/ai/ask -> literal RAG + Gemini API
+    if (pathname === '/api/ai/ask' && request.method === 'POST') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Authentification requise pour interroger l’Assistant IA.' }, { status: 401 });
+      }
+
+      const userId = customerIdFromEmail(session.email);
+      if (env.DB) {
+        await ensureTables(env.DB);
+        const sub = await env.DB.prepare(
+          'SELECT status FROM ai_subscriptions WHERE user_id = ?'
+        )
+          .bind(userId)
+          .first<{ status: string }>();
+        if (!sub || sub.status !== 'active') {
+          return json(
+            {
+              error: "Abonnement requis pour accéder à l'Assistant IA (abonnement offert actuellement en phase de test).",
+              code: 'SUBSCRIPTION_REQUIRED'
+            },
+            { status: 402 }
+          );
+        }
+      }
+
+      if (!env.GEMINI_API_KEY) {
+        return json(
+          {
+            error: "Clé API Google AI Pro (GEMINI_API_KEY) non configurée sur le Cloudflare Worker. Exécutez 'npx wrangler secret put GEMINI_API_KEY' puis 'npx wrangler deploy'.",
+            code: 'GEMINI_KEY_MISSING'
+          },
+          { status: 503 }
+        );
+      }
+
+      const body = await readJson(request);
+      const question = String(body?.question || '').trim();
+      const bookIdFilter = String(body?.bookId || '').trim();
+      const history = Array.isArray(body?.history) ? body.history.slice(-6) : [];
+      const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 14) : [];
+
+      if (!question || question.length > 1000) {
+        return json({ error: 'Question invalide (entre 1 et 1 000 caractères).' }, { status: 400 });
+      }
+
+      // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + FTS5)
+      type ChunkRow = {
+        book_id: string;
+        book_title: string;
+        tome: string;
+        page_number: number;
+        chapter: string;
+        content: string;
+      };
+      let retrievedChunks: ChunkRow[] = [];
+
+      if (env.DB) {
+        const keywords = question
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9\s-]/g, ' ')
+          .split(/\s+/)
+          .filter((w) => w.length >= 3 && !['les', 'des', 'une', 'que', 'qui', 'pour', 'dans', 'sur', 'avec', 'par', 'est', 'sont', 'quelle', 'quel', 'quels', 'quelles', 'emile', 'mourey', 'auteur', 'livre', 'livres', 'ouvrage', 'ouvrages', 'position', 'theorie'].includes(w))
+          .slice(0, 8);
+
+        if (keywords.length > 0) {
+          // Try FTS5 full-text search first
+          try {
+            const ftsQuery = keywords.map((k) => `"${k.replace(/"/g, '')}"`).join(' OR ');
+            const ftsStmt = bookIdFilter
+              ? env.DB.prepare(
+                  `SELECT bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                   FROM book_chunks_fts fts
+                   JOIN book_chunks bc ON bc.id = fts.rowid
+                   WHERE book_chunks_fts MATCH ? AND bc.book_id = ?
+                   ORDER BY rank
+                   LIMIT 10`
+                ).bind(ftsQuery, bookIdFilter)
+              : env.DB.prepare(
+                  `SELECT bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                   FROM book_chunks_fts fts
+                   JOIN book_chunks bc ON bc.id = fts.rowid
+                   WHERE book_chunks_fts MATCH ?
+                   ORDER BY rank
+                   LIMIT 10`
+                ).bind(ftsQuery);
+            const ftsRes = await ftsStmt.all<ChunkRow>();
+            retrievedChunks = ftsRes.results || [];
+          } catch {
+            // FTS5 virtual table may not be applied yet; fallback to LIKE on book_chunks
+            try {
+              const topKw = `%${keywords[0]}%`;
+              const likeStmt = bookIdFilter
+                ? env.DB.prepare(
+                    `SELECT book_id, book_title, tome, page_number, chapter, content
+                     FROM book_chunks
+                     WHERE book_id = ? AND lower(content) LIKE ?
+                     LIMIT 8`
+                  ).bind(bookIdFilter, topKw)
+                : env.DB.prepare(
+                    `SELECT book_id, book_title, tome, page_number, chapter, content
+                     FROM book_chunks
+                     WHERE lower(content) LIKE ?
+                     LIMIT 8`
+                  ).bind(topKw);
+              const likeRes = await likeStmt.all<ChunkRow>();
+              retrievedChunks = likeRes.results || [];
+            } catch {
+              retrievedChunks = [];
+            }
+          }
+        }
+      }
+
+      const mode = retrievedChunks.length > 0 ? 'd1_literal' : 'catalog_synthesis';
+
+      // Build grounded documentary context for Gemini
+      const contextBlocks =
+        retrievedChunks.length > 0
+          ? retrievedChunks.map(
+              (c, idx) =>
+                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${c.content}`
+            )
+          : fallbackContext.map(
+              (fc: any, idx: number) =>
+                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${fc.excerpt || ''}`
+            );
+
+      const systemInstruction = [
+        "Tu es l'assistant documentaire officiel des Éditions Émile Mourey.",
+        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses 12 ouvrages et dossiers d'études.",
+        'Règles impératives :',
+        '1. Appuie-toi STRICTEMENT sur les passages littéraux et notices documentaires fournis ci-dessous. N’invente jamais une citation ni un numéro de page absent des sources.',
+        "2. Cite systématiquement les références exactes des ouvrages concernés (titre, tome, et numéro de page lorsqu'il figure dans les passages indexés).",
+        "3. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
+        "4. Si la question sort du périmètre des ouvrages fournis, indique-le honnêtement et oriente le lecteur vers les thèmes couverts par la collection.",
+        '5. Réponds en français soigné, structuré en paragraphes ou puces lisibles.'
+      ].join('\n');
+
+      const conversationTurns = history
+        .filter((h: any) => h?.text)
+        .map((h: any) => ({
+          role: h.role === 'model' ? 'model' : 'user',
+          parts: [{ text: String(h.text).slice(0, 1500) }]
+        }));
+
+      const userPromptWithSources = [
+        '=== SOURCES DOCUMENTAIRES D’ÉMILE MOUREY ===',
+        contextBlocks.length > 0
+          ? contextBlocks.join('\n\n')
+          : 'Aucun passage indexé disponible pour cette requête.',
+        '=== FIN DES SOURCES ===',
+        '',
+        `Question du lecteur : ${question}`
+      ].join('\n');
+
+      const model = (env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemInstruction }] },
+              contents: [
+                ...conversationTurns,
+                { role: 'user', parts: [{ text: userPromptWithSources }] }
+              ],
+              generationConfig: {
+                temperature: 0.25,
+                maxOutputTokens: 1400
+              }
+            })
+          }
+        );
+
+        const geminiData = await geminiRes.json().catch(() => null);
+        if (!geminiRes.ok) {
+          const errMsg = geminiData?.error?.message || `Erreur API Gemini (${geminiRes.status})`;
+          return json({ error: errMsg }, { status: 502 });
+        }
+
+        const answerText =
+          geminiData?.candidates?.[0]?.content?.parts
+            ?.map((p: any) => p?.text || '')
+            .join('')
+            .trim() || "Je n'ai pas pu formuler de réponse à partir des extraits disponibles.";
+
+        // Deduplicate cited references for clickable UI pills
+        const refsMap = new Map<string, { bookId: string; title: string; tome: string; pages: number[] }>();
+        if (retrievedChunks.length > 0) {
+          for (const c of retrievedChunks) {
+            const existing = refsMap.get(c.book_id);
+            if (existing) {
+              if (c.page_number > 0 && !existing.pages.includes(c.page_number)) {
+                existing.pages.push(c.page_number);
+              }
+            } else {
+              refsMap.set(c.book_id, {
+                bookId: c.book_id,
+                title: c.book_title,
+                tome: c.tome || '',
+                pages: c.page_number > 0 ? [c.page_number] : []
+              });
+            }
+          }
+        } else {
+          for (const fc of fallbackContext.slice(0, 4)) {
+            if (fc?.bookId && !refsMap.has(fc.bookId)) {
+              refsMap.set(fc.bookId, {
+                bookId: fc.bookId,
+                title: fc.title || '',
+                tome: fc.tome || '',
+                pages: []
+              });
+            }
+          }
+        }
+
+        return json({
+          ok: true,
+          answer: answerText,
+          references: Array.from(refsMap.values()),
+          indexedChunksUsed: retrievedChunks.length,
+          mode,
+          model
+        });
+      } catch (err: any) {
+        console.error('POST /api/ai/ask error:', err);
+        return json({ error: err?.message || "Erreur lors de l'appel à Gemini." }, { status: 500 });
       }
     }
 

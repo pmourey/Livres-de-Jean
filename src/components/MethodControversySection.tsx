@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BookOpen,
   Compass,
@@ -11,12 +11,20 @@ import {
   ScrollText,
   MapPin,
   Shield,
-  Sparkles
+  Sparkles,
+  Library,
+  ChevronDown,
+  ChevronUp,
+  Layers
 } from 'lucide-react';
+import { Book } from '../types';
 import { AGORAVOX_CARDS, AGORAVOX_META } from '../data/agoravoxQuotes';
+import { STUDY_DOSSIERS, DossierDomain } from '../data/studyDossiers';
 import { CommentsSection } from './CommentsSection';
 
 interface MethodControversySectionProps {
+  books?: Book[];
+  onSelectBook?: (book: Book) => void;
   onNavigateCatalog: () => void;
   onNavigateLegal?: () => void;
   onNavigateAccount?: () => void;
@@ -25,12 +33,45 @@ interface MethodControversySectionProps {
 }
 
 export const MethodControversySection: React.FC<MethodControversySectionProps> = ({
+  books = [],
+  onSelectBook,
   onNavigateCatalog,
   onNavigateLegal,
   onNavigateAccount,
   customerToken = '',
   defaultAuthorName = ''
 }) => {
+  const [selectedDomain, setSelectedDomain] = useState<'all' | DossierDomain>('all');
+  const [expandedDossierId, setExpandedDossierId] = useState<string>('dossier-alesia');
+  const [activeCommentSlug, setActiveCommentSlug] = useState<string>('methode-et-controverse');
+
+  const domains: Array<'all' | DossierDomain> = [
+    'all',
+    'Gaule & Guerre des Gaules',
+    'Art roman & Judéo-druidisme',
+    'Textes sacrés & Philosophie'
+  ];
+
+  const filteredDossiers =
+    selectedDomain === 'all'
+      ? STUDY_DOSSIERS
+      : STUDY_DOSSIERS.filter((d) => d.domain === selectedDomain);
+
+  const commentTargetOptions = [
+    { slug: 'methode-et-controverse', label: 'Dossier général — Méthode et Controverse' },
+    ...STUDY_DOSSIERS.map((d) => ({
+      slug: d.slug,
+      label: `Dossier ${d.number} — ${d.title}`
+    }))
+  ];
+
+  const handleSelectDossierForComment = (slug: string) => {
+    setActiveCommentSlug(slug);
+    const el = document.getElementById('commentaires-moderes');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
   return (
     <div className="space-y-14 pb-12">
       {/* En-tête éditorial */}
@@ -466,11 +507,255 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
             );
           })}
         </div>
+
+        <p className="text-[11px] text-stone-500 italic text-center sm:text-left">
+          {AGORAVOX_META.faithfulCommunityNote}
+        </p>
       </section>
 
-      {/* Espace de commentaires modérés a priori (placé sous Voix d'AgoraVox) */}
+      {/* Dossiers d'Études complets (7 dossiers croisant ouvrages, AgoraVox & synthèse Gemini) */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-200 pb-4">
+          <div className="space-y-1">
+            <span className="font-cinzel text-xs uppercase tracking-widest text-[#8B1E2D] font-bold flex items-center gap-1.5">
+              <Library className="w-3.5 h-3.5" />
+              <span>Passerelle Thématique · Ouvrages & 563 Articles AgoraVox</span>
+            </span>
+            <h2 className="font-serif-display text-2xl sm:text-3xl font-bold text-[#2B1810]">
+              Dossiers d’Études & Contre-Enquêtes ({STUDY_DOSSIERS.length})
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-600 max-w-2xl">
+              Explorez l'ensemble des grands dossiers de la collection d'Émile Mourey — de la Guerre des Gaules à l'art roman bourguignon et à l'analyse des textes sacrés — avec leurs contrepoints académiques et les ouvrages correspondants.
+            </p>
+          </div>
+
+          <a
+            href="https://share.gemini.google/YIUWi817BCBE"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#F5F1E9] hover:bg-stone-200/80 text-stone-800 border border-stone-300 rounded-md text-xs font-semibold transition-colors shrink-0 self-start md:self-auto"
+            title="Consulter la synthèse éditoriale complète de la collection sur Gemini"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
+            <span>Synthèse d'étude Gemini</span>
+            <ExternalLink className="w-3 h-3 text-stone-500" />
+          </a>
+        </div>
+
+        {/* Filtres thématiques */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {domains.map((domain) => {
+            const count =
+              domain === 'all'
+                ? STUDY_DOSSIERS.length
+                : STUDY_DOSSIERS.filter((d) => d.domain === domain).length;
+            const isActive = selectedDomain === domain;
+            return (
+              <button
+                key={domain}
+                type="button"
+                onClick={() => setSelectedDomain(domain)}
+                className={`px-3.5 py-2 rounded-md font-semibold border transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-[#8B1E2D] text-white border-[#8B1E2D] shadow-2xs'
+                    : 'bg-white text-stone-700 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                }`}
+              >
+                {domain === 'all' ? `Tous les dossiers (${count})` : `${domain} (${count})`}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Liste des dossiers */}
+        <div className="space-y-4">
+          {filteredDossiers.map((dossier) => {
+            const isExpanded = expandedDossierId === dossier.id;
+            const linkedBooks = dossier.relatedBookIds
+              .map((id) => books.find((b) => b.id === id))
+              .filter((b): b is Book => Boolean(b));
+
+            return (
+              <article
+                key={dossier.id}
+                className="bg-white border border-stone-200 rounded-xl shadow-xs overflow-hidden transition-all"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedDossierId(isExpanded ? '' : dossier.id)
+                  }
+                  className="w-full px-5 sm:px-6 py-4 bg-[#FAF8F5] hover:bg-[#F5F1E9] transition-colors flex items-center justify-between gap-4 text-left cursor-pointer"
+                >
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#2B1810] text-[#D4AF37] font-cinzel font-bold text-xs shrink-0">
+                      {dossier.number}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-cinzel uppercase tracking-wider font-bold text-[#8B1E2D] block">
+                        {dossier.domain}
+                      </span>
+                      <h3 className="font-serif-display font-bold text-base sm:text-xl text-[#2B1810]">
+                        {dossier.title}
+                      </h3>
+                      <p className="text-xs text-stone-600 mt-0.5 line-clamp-2">
+                        {dossier.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="p-1.5 rounded-full bg-white border border-stone-200 text-stone-600 shrink-0">
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </span>
+                </button>
+
+                {isExpanded && (
+                  <div className="p-5 sm:p-7 border-t border-stone-200 space-y-5">
+                    <p className="text-xs sm:text-sm text-stone-700 leading-relaxed text-justify">
+                      {dossier.lead}
+                    </p>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                      {/* Thèse d'Émile Mourey */}
+                      <div className="lg:col-span-7 bg-[#FAF8F5] border border-stone-200 rounded-lg p-5 space-y-3">
+                        <h4 className="font-serif-display font-bold text-base text-[#2B1810] flex items-center gap-2">
+                          <Compass className="w-4 h-4 text-[#8B1E2D]" />
+                          <span>Axes de la contre-enquête d’Émile Mourey</span>
+                        </h4>
+                        <ul className="space-y-2 text-xs text-stone-700 leading-relaxed">
+                          {dossier.moureyPoints.map((pt, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-[#8B1E2D] font-bold mt-0.5">•</span>
+                              <span className="text-justify">{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Contrepoint académique / archéologique */}
+                      <aside className="lg:col-span-5 bg-amber-50/75 border border-amber-300/90 rounded-lg p-5 space-y-2.5">
+                        <div className="flex items-start gap-2">
+                          <Scale className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
+                          <h4 className="font-serif-display font-bold text-sm text-amber-950">
+                            {dossier.academicCounterpointTitle}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-amber-950/90 leading-relaxed text-justify">
+                          {dossier.academicCounterpoint}
+                        </p>
+                      </aside>
+                    </div>
+
+                    {/* Sources clés */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-stone-500 inline-flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5" />
+                        Sources & repères :
+                      </span>
+                      {dossier.keySources.map((src, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[11px] bg-stone-100 text-stone-700 border border-stone-200 px-2.5 py-0.5 rounded-full"
+                        >
+                          {src}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Ouvrages liés + Actions */}
+                    <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 block">
+                          Ouvrages liés du catalogue :
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {linkedBooks.length > 0 ? (
+                            linkedBooks.map((book) => (
+                              <button
+                                key={book.id}
+                                type="button"
+                                onClick={() =>
+                                  onSelectBook ? onSelectBook(book) : onNavigateCatalog()
+                                }
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FAF8F5] hover:bg-[#8B1E2D] hover:text-white text-[#2B1810] border border-stone-300 hover:border-[#8B1E2D] rounded-md text-xs font-medium transition-colors cursor-pointer"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                                <span>
+                                  {book.title}
+                                  {book.tome ? ` (${book.tome})` : ''}
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onNavigateCatalog}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FAF8F5] hover:bg-stone-200 text-stone-800 border border-stone-300 rounded-md text-xs font-medium cursor-pointer"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>Voir le catalogue complet</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <a
+                          href={dossier.agoravoxUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 text-xs font-semibold rounded-md transition-colors"
+                        >
+                          <span>{dossier.agoravoxLabel}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSelectDossierForComment(dossier.slug)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Commenter ce dossier</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Sélecteur de dossier cible pour les commentaires modérés */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
+        <div className="bg-[#F5F1E9] border border-stone-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <label htmlFor="comment-dossier-select" className="font-semibold text-stone-800">
+            Dossier commenté ci-dessous :
+          </label>
+          <select
+            id="comment-dossier-select"
+            value={activeCommentSlug}
+            onChange={(e) => setActiveCommentSlug(e.target.value)}
+            className="px-3 py-1.5 bg-white border border-stone-300 rounded-md text-xs text-stone-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8B1E2D]"
+          >
+            {commentTargetOptions.map((opt) => (
+              <option key={opt.slug} value={opt.slug}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Espace de commentaires modérés a priori (placé sous Voix d'AgoraVox & Dossiers) */}
       <CommentsSection
-        targetSlug="methode-et-controverse"
+        targetSlug={activeCommentSlug}
         customerToken={customerToken}
         defaultAuthorName={defaultAuthorName}
         onNavigateAccount={onNavigateAccount || onNavigateCatalog}

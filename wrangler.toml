@@ -42,3 +42,9 @@ GMAIL_USER = "philippe.mourey@gmail.com"
 #   npx wrangler secret put ADMIN_SECRET
 # Option 2 (Si dépôt privé) : Décommentez et définissez votre clé secrète ci-dessous :
 # ADMIN_SECRET = "votre_cle_secrete_auteur"
+
+# Module Assistant IA (Google AI Pro / Gemini API) :
+# Clé API à stocker en secret chiffré Cloudflare (JAMAIS exposée côté navigateur) :
+#   npx wrangler secret put GEMINI_API_KEY
+GEMINI_MODEL = "gemini-2.5-flash"
+AI_BETA_FREE = "true"

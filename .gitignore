@@ -9,3 +9,5 @@ coverage/
 /.env.prod
 /.env.local
 .dev.vars
+pdfs/
+migrations/0003_seed_book_chunks.sql

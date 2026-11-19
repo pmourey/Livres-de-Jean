@@ -8,6 +8,7 @@ interface FooterProps {
   onNavigateAuthor: () => void;
   onNavigateCatalog?: () => void;
   onNavigateMethod?: () => void;
+  onNavigateAi?: () => void;
   onNavigateLegalPage?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigateAuthor,
   onNavigateCatalog,
   onNavigateMethod,
+  onNavigateAi,
   onNavigateLegalPage
 }) => {
   return (
@@ -122,6 +124,16 @@ export const Footer: React.FC<FooterProps> = ({
                     className="hover:text-white transition-colors"
                   >
                     Méthode et Controverse
+                  </button>
+                </li>
+              )}
+              {onNavigateAi && (
+                <li>
+                  <button
+                    onClick={onNavigateAi}
+                    className="hover:text-white transition-colors"
+                  >
+                    Assistant IA (12 ouvrages · Phase de test)
                   </button>
                 </li>
               )}

@@ -47,7 +47,9 @@ export const AGORAVOX_META = {
   authorProfileUrl: 'https://www.agoravox.fr/auteur/emile-mourey',
   articleCount: 563,
   sectionSubtitle:
-    'Extraits représentatifs des discussions publiées sur AgoraVox autour de la méthode militaire, de la topographie antique et de la confrontation des sources.'
+    'Extraits représentatifs des discussions publiées sur AgoraVox au fil de vingt années de tribunes (800 à 2 400 lectures par article) autour de la méthode militaire, de la topographie antique et de la confrontation des sources.',
+  faithfulCommunityNote:
+    'Un cercle fidèle de lecteurs commentateurs (dont Antenor, JPCiron, Rinbeau ou chat maigre) accompagne et discute régulièrement les dossiers d’Émile Mourey.'
 };
 
 export const AGORAVOX_CARDS: AgoraVoxCard[] = [
