@@ -6,12 +6,18 @@ interface FooterProps {
   onOpenLegal: (type: 'mentions' | 'cgv' | 'shipping_info') => void;
   onNavigateAdmin: () => void;
   onNavigateAuthor: () => void;
+  onNavigateCatalog?: () => void;
+  onNavigateMethod?: () => void;
+  onNavigateLegalPage?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onOpenLegal,
   onNavigateAdmin,
-  onNavigateAuthor
+  onNavigateAuthor,
+  onNavigateCatalog,
+  onNavigateMethod,
+  onNavigateLegalPage
 }) => {
   return (
     <footer className="bg-[#241712] text-stone-300 border-t border-stone-800 mt-20 text-xs">
@@ -100,12 +106,25 @@ export const Footer: React.FC<FooterProps> = ({
             <ul className="space-y-1.5 text-stone-300">
               <li>
                 <button
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  onClick={() => {
+                    if (onNavigateCatalog) onNavigateCatalog();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   className="hover:text-white transition-colors"
                 >
                   Catalogue des livres
                 </button>
               </li>
+              {onNavigateMethod && (
+                <li>
+                  <button
+                    onClick={onNavigateMethod}
+                    className="hover:text-white transition-colors"
+                  >
+                    Méthode et Controverse
+                  </button>
+                </li>
+              )}
               <li>
                 <button
                   onClick={onNavigateAuthor}
@@ -133,10 +152,10 @@ export const Footer: React.FC<FooterProps> = ({
             <ul className="space-y-1.5 text-stone-300">
               <li>
                 <button
-                  onClick={() => onOpenLegal('mentions')}
+                  onClick={() => (onNavigateLegalPage ? onNavigateLegalPage() : onOpenLegal('mentions'))}
                   className="hover:text-white transition-colors"
                 >
-                  Mentions Légales (SIREN 418 122 883)
+                  Charte et Mentions légales (SIREN 418 122 883)
                 </button>
               </li>
               <li>

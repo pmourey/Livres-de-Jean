@@ -20,13 +20,15 @@ import { OrderConfirmationModal } from './components/OrderConfirmationModal';
 import { CustomerDashboard } from './components/CustomerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthorSection } from './components/AuthorSection';
+import { MethodControversySection } from './components/MethodControversySection';
+import { LegalCharterPage } from './components/LegalCharterPage';
 import { LegalModal } from './components/LegalModals';
 import { Footer } from './components/Footer';
 import { PAYMENTS_API_BASE } from './config/commerce';
 
 export default function App() {
-  // Navigation View: 'catalog' | 'author' | 'shipping' | 'account' | 'admin'
-  const [currentView, setCurrentView] = useState<'catalog' | 'author' | 'shipping' | 'account' | 'admin'>('catalog');
+  // Navigation View: 'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
+  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>('catalog');
 
   // Persistence State
   const [books, setBooks] = useState<Book[]>(() => {
@@ -654,7 +656,34 @@ export default function App() {
           />
         )}
 
+        {currentView === 'method' && (
+          <MethodControversySection
+            onNavigateCatalog={() => {
+              setCurrentView('catalog');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateLegal={() => {
+              setCurrentView('legal');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
         {currentView === 'author' && <AuthorSection />}
+
+        {currentView === 'legal' && (
+          <LegalCharterPage
+            onNavigateCatalog={() => {
+              setCurrentView('catalog');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateMethod={() => {
+              setCurrentView('method');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenCgv={() => setLegalModalType('cgv')}
+          />
+        )}
 
         {currentView === 'shipping' && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 space-y-8">
@@ -774,6 +803,18 @@ export default function App() {
         onNavigateAdmin={() => setCurrentView('admin')}
         onNavigateAuthor={() => {
           setCurrentView('author');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateCatalog={() => {
+          setCurrentView('catalog');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateMethod={() => {
+          setCurrentView('method');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateLegalPage={() => {
+          setCurrentView('legal');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />

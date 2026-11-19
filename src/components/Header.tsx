@@ -4,7 +4,7 @@ import { ShoppingBag, User, ShieldCheck, Lock, AlertTriangle, Wrench } from 'luc
 interface HeaderProps {
   cartCount: number;
   onOpenCart: () => void;
-  onNavigate: (view: 'catalog' | 'author' | 'shipping' | 'account' | 'admin') => void;
+  onNavigate: (view: 'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin') => void;
   currentView: string;
   isMaintenanceMode?: boolean;
   maintenanceMessage?: string;
@@ -67,19 +67,27 @@ export const Header: React.FC<HeaderProps> = ({
           Éditions Émile Mourey
         </button>
 
-        {/* Zone 2: 4-5 clean text navigation links */}
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-stone-700">
+        {/* Zone 2: Clean text navigation links */}
+        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs lg:text-sm font-medium text-stone-700">
           <button
             onClick={() => onNavigate('catalog')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 ${
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
               currentView === 'catalog' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
             }`}
           >
             Catalogue
           </button>
           <button
+            onClick={() => onNavigate('method')}
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
+              currentView === 'method' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+            }`}
+          >
+            Méthode & Controverse
+          </button>
+          <button
             onClick={() => onNavigate('author')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 ${
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
               currentView === 'author' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
             }`}
           >
@@ -87,15 +95,23 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onNavigate('shipping')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 ${
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
               currentView === 'shipping' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
             }`}
           >
             Livraison & Paiement
           </button>
           <button
+            onClick={() => onNavigate('legal')}
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
+              currentView === 'legal' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+            }`}
+          >
+            Charte & Mentions
+          </button>
+          <button
             onClick={() => onNavigate('account')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 ${
+            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
               currentView === 'account' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
             }`}
           >
@@ -140,6 +156,53 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Mobile Navigation Strip */}
+      <nav
+        aria-label="Navigation mobile"
+        className="md:hidden border-t border-[#E7E2D9] bg-[#FAF8F5] px-4 py-2 flex items-center gap-4 overflow-x-auto text-xs font-medium text-stone-700"
+      >
+        <button
+          onClick={() => onNavigate('catalog')}
+          className={`whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'catalog' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          Catalogue
+        </button>
+        <button
+          onClick={() => onNavigate('method')}
+          className={`whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'method' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          Méthode & Controverse
+        </button>
+        <button
+          onClick={() => onNavigate('author')}
+          className={`whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'author' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          L’Auteur
+        </button>
+        <button
+          onClick={() => onNavigate('shipping')}
+          className={`whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'shipping' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          Livraison
+        </button>
+        <button
+          onClick={() => onNavigate('legal')}
+          className={`whitespace-nowrap pb-0.5 border-b-2 ${
+            currentView === 'legal' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+          }`}
+        >
+          Charte & Mentions
+        </button>
+      </nav>
     </header>
   );
 };
