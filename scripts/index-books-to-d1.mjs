@@ -30,17 +30,18 @@ const CHUNK_SIZE = 1200;
 const CHUNK_OVERLAP = 200;
 
 const BOOK_MATCHERS = [
-  { match: /gergovie/i, bookId: 'mourey-gergovie-tome-1', title: 'Histoire de Gergovie', tome: 'Tome 1' },
-  { match: /bouclier|tome.?2/i, bookId: 'mourey-bibracte-tome-2-bouclier-eduen', title: 'Histoire de Bibracte', tome: 'Tome 2 : Le Bouclier Éduen' },
-  { match: /epee|épée|flamboyante|tome.?3/i, bookId: 'mourey-bibracte-tome-3-epee-flamboyante', title: 'Histoire de Bibracte', tome: "Tome 3 : L'Épée Flamboyante" },
-  { match: /rayonnant|tome.?4/i, bookId: 'mourey-bibracte-tome-4-dieu-rayonnant', title: 'Histoire de Bibracte', tome: 'Tome 4 : Dieu Rayonnant' },
-  { match: /cache|caché|tome.?5/i, bookId: 'mourey-bibracte-tome-5-dieu-cache', title: 'Histoire de Bibracte', tome: 'Tome 5 : Dieu Caché' },
+  // Specific multi-tome series FIRST (before generic tome numbers)
   { match: /christ.*(2|ii\b|tome.?2)/i, bookId: 'mourey-christ-tome-2', title: 'Histoire du Christ', tome: 'Tome 2' },
   { match: /christ/i, bookId: 'mourey-christ-tome-1', title: 'Histoire du Christ', tome: 'Tome 1' },
   { match: /mahomet.*(2|ii\b|tome.?2)/i, bookId: 'mourey-mahomet-tome-2', title: 'Histoire de Mahomet', tome: 'Tome 2' },
   { match: /mahomet/i, bookId: 'mourey-mahomet-tome-1', title: 'Histoire de Mahomet', tome: 'Tome 1' },
-  { match: /gaule.*(2|2eme|2ème)/i, bookId: 'mourey-gaule-en-heritage', title: 'La Gaule en héritage', tome: '2ème partie' },
-  { match: /gaule|heritage|héritage|1ere|1ère/i, bookId: 'mourey-gaule-en-heritage', title: 'La Gaule en héritage', tome: '1ère partie' }
+  { match: /gaule.*(2|2eme|2ème|partie.?2)/i, bookId: 'mourey-gaule-en-heritage', title: 'La Gaule en héritage', tome: '2ème partie' },
+  { match: /gaule|heritage|héritage|1ere|1ère/i, bookId: 'mourey-gaule-en-heritage', title: 'La Gaule en héritage', tome: '1ère partie' },
+  { match: /gergovie/i, bookId: 'mourey-gergovie-tome-1', title: 'Histoire de Gergovie', tome: 'Tome 1' },
+  { match: /bouclier|bibracte.*(2|tome.?2)/i, bookId: 'mourey-bibracte-tome-2-bouclier-eduen', title: 'Histoire de Bibracte', tome: 'Tome 2 : Le Bouclier Éduen' },
+  { match: /epee|épée|flamboyante|bibracte.*(3|tome.?3)/i, bookId: 'mourey-bibracte-tome-3-epee-flamboyante', title: 'Histoire de Bibracte', tome: "Tome 3 : L'Épée Flamboyante" },
+  { match: /rayonnant|bibracte.*(4|tome.?4)/i, bookId: 'mourey-bibracte-tome-4-dieu-rayonnant', title: 'Histoire de Bibracte', tome: 'Tome 4 : Dieu Rayonnant' },
+  { match: /cache|caché|bibracte.*(5|tome.?5)/i, bookId: 'mourey-bibracte-tome-5-dieu-cache', title: 'Histoire de Bibracte', tome: 'Tome 5 : Dieu Caché' }
 ];
 
 const sqlEscape = (str) => `'${String(str ?? '').replace(/'/g, "''")}'`;

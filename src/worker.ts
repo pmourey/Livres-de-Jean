@@ -1285,6 +1285,7 @@ export default {
       const userId = customerIdFromEmail(session.email);
       let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
       let indexedChunksCount = 0;
+      let indexedAgoravoxCount = 0;
 
       if (env.DB) {
         await ensureTables(env.DB);
@@ -1295,6 +1296,8 @@ export default {
           .first<{ plan: string; status: string; activated_at: string; expires_at?: string | null }>();
         const countRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM book_chunks').first<{ cnt: number }>().catch(() => null);
         indexedChunksCount = Number(countRow?.cnt || 0);
+        const avCountRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM agoravox_chunks').first<{ cnt: number }>().catch(() => null);
+        indexedAgoravoxCount = Number(avCountRow?.cnt || 0);
       }
 
       const isActive = Boolean(sub && sub.status === 'active');
@@ -1306,6 +1309,7 @@ export default {
         activatedAt: sub?.activated_at || null,
         betaFreeEnabled,
         indexedChunksCount,
+        indexedAgoravoxCount,
         geminiConfigured: Boolean(env.GEMINI_API_KEY)
       });
     }
@@ -1388,6 +1392,7 @@ export default {
       const body = await readJson(request);
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
+      const sourceScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox'
       const history = Array.isArray(body?.history) ? body.history.slice(-4) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
@@ -1395,8 +1400,9 @@ export default {
         return json({ error: 'Question invalide (entre 1 et 1 000 caractères).' }, { status: 400 });
       }
 
-      // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + FTS5)
+      // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + agoravox_chunks via FTS5)
       type ChunkRow = {
+        id?: number;
         book_id: string;
         book_title: string;
         tome: string;
@@ -1404,76 +1410,190 @@ export default {
         chapter: string;
         content: string;
       };
+      type AgoraVoxRow = {
+        id?: number;
+        source_type: 'article' | 'comment';
+        article_title: string;
+        article_url: string;
+        source_url: string;
+        author_name: string;
+        published_date: string;
+        content: string;
+      };
+
       let retrievedChunks: ChunkRow[] = [];
+      let retrievedAgoravox: AgoraVoxRow[] = [];
 
       if (env.DB) {
+        const stopWords = new Set([
+          'les', 'des', 'une', 'que', 'qui', 'pour', 'dans', 'sur', 'avec', 'par',
+          'est', 'sont', 'quelle', 'quel', 'quels', 'quelles', 'comment', 'pourquoi',
+          'emile', 'mourey', 'auteur', 'livre', 'livres', 'ouvrage', 'ouvrages',
+          'position', 'theorie', 'these', 'theses', 'son', 'ses', 'leur', 'leurs',
+          'cette', 'cet', 'ces', 'aux', 'mais', 'plus', 'etre', 'fait', 'avoir',
+          'article', 'articles', 'agoravox', 'commentaire', 'commentaires', 'situe'
+        ]);
         const keywords = question
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/[^a-z0-9\s-]/g, ' ')
           .split(/\s+/)
-          .filter((w) => w.length >= 3 && !['les', 'des', 'une', 'que', 'qui', 'pour', 'dans', 'sur', 'avec', 'par', 'est', 'sont', 'quelle', 'quel', 'quels', 'quelles', 'emile', 'mourey', 'auteur', 'livre', 'livres', 'ouvrage', 'ouvrages', 'position', 'theorie'].includes(w))
+          .filter((w) => w.length >= 3 && !stopWords.has(w))
           .slice(0, 8);
 
-        if (keywords.length > 0) {
-          // Try FTS5 full-text search first
+        const safeTerms = keywords.map((k) => `"${k.replace(/"/g, '')}"`);
+        const ftsAndQuery = safeTerms.length >= 2 ? safeTerms.slice(0, 3).join(' AND ') : safeTerms.join(' OR ');
+        const ftsOrQuery = safeTerms.join(' OR ');
+
+        // 1A. Search literal book_chunks (unless scope === 'agoravox')
+        if (keywords.length > 0 && sourceScope !== 'agoravox') {
           try {
-            const ftsQuery = keywords.map((k) => `"${k.replace(/"/g, '')}"`).join(' OR ');
-            const ftsStmt = bookIdFilter
-              ? env.DB.prepare(
-                  `SELECT bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
-                   FROM book_chunks_fts fts
-                   JOIN book_chunks bc ON bc.id = fts.rowid
-                   WHERE book_chunks_fts MATCH ? AND bc.book_id = ?
-                   ORDER BY rank
-                   LIMIT 10`
-                ).bind(ftsQuery, bookIdFilter)
-              : env.DB.prepare(
-                  `SELECT bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
-                   FROM book_chunks_fts fts
-                   JOIN book_chunks bc ON bc.id = fts.rowid
-                   WHERE book_chunks_fts MATCH ?
-                   ORDER BY rank
-                   LIMIT 10`
-                ).bind(ftsQuery);
-            const ftsRes = await ftsStmt.all<ChunkRow>();
-            retrievedChunks = ftsRes.results || [];
-          } catch {
-            // FTS5 virtual table may not be applied yet; fallback to LIKE on book_chunks
-            try {
-              const topKw = `%${keywords[0]}%`;
-              const likeStmt = bookIdFilter
+            const seenBookRowIds = new Set<number>();
+            const rawMatches: ChunkRow[] = [];
+
+            // High-precision AND query first (top 2-3 keywords together)
+            if (safeTerms.length >= 2) {
+              const andStmt = bookIdFilter
                 ? env.DB.prepare(
-                    `SELECT book_id, book_title, tome, page_number, chapter, content
-                     FROM book_chunks
-                     WHERE book_id = ? AND lower(content) LIKE ?
+                    `SELECT bc.id, bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                     FROM book_chunks_fts fts
+                     JOIN book_chunks bc ON bc.id = fts.rowid
+                     WHERE book_chunks_fts MATCH ? AND bc.book_id = ?
+                     ORDER BY rank
                      LIMIT 8`
-                  ).bind(bookIdFilter, topKw)
+                  ).bind(ftsAndQuery, bookIdFilter)
                 : env.DB.prepare(
-                    `SELECT book_id, book_title, tome, page_number, chapter, content
-                     FROM book_chunks
-                     WHERE lower(content) LIKE ?
+                    `SELECT bc.id, bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                     FROM book_chunks_fts fts
+                     JOIN book_chunks bc ON bc.id = fts.rowid
+                     WHERE book_chunks_fts MATCH ?
+                     ORDER BY rank
                      LIMIT 8`
-                  ).bind(topKw);
-              const likeRes = await likeStmt.all<ChunkRow>();
-              retrievedChunks = likeRes.results || [];
-            } catch {
-              retrievedChunks = [];
+                  ).bind(ftsAndQuery);
+              const andRes = await andStmt.all<ChunkRow>().catch(() => ({ results: [] }));
+              for (const row of andRes.results || []) {
+                if (row.id && !seenBookRowIds.has(row.id)) {
+                  seenBookRowIds.add(row.id);
+                  rawMatches.push(row);
+                }
+              }
             }
+
+            // Top up with BM25 OR query to gather broader multi-book context
+            if (rawMatches.length < 10) {
+              const orStmt = bookIdFilter
+                ? env.DB.prepare(
+                    `SELECT bc.id, bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                     FROM book_chunks_fts fts
+                     JOIN book_chunks bc ON bc.id = fts.rowid
+                     WHERE book_chunks_fts MATCH ? AND bc.book_id = ?
+                     ORDER BY rank
+                     LIMIT 14`
+                  ).bind(ftsOrQuery, bookIdFilter)
+                : env.DB.prepare(
+                    `SELECT bc.id, bc.book_id, bc.book_title, bc.tome, bc.page_number, bc.chapter, bc.content
+                     FROM book_chunks_fts fts
+                     JOIN book_chunks bc ON bc.id = fts.rowid
+                     WHERE book_chunks_fts MATCH ?
+                     ORDER BY rank
+                     LIMIT 14`
+                  ).bind(ftsOrQuery);
+              const orRes = await orStmt.all<ChunkRow>();
+              for (const row of orRes.results || []) {
+                if (row.id && !seenBookRowIds.has(row.id)) {
+                  seenBookRowIds.add(row.id);
+                  rawMatches.push(row);
+                }
+              }
+            }
+
+            // Diversify across books (max 4 passages per book when searching whole collection)
+            const perBookCount = new Map<string, number>();
+            for (const row of rawMatches) {
+              const cnt = perBookCount.get(row.book_id) || 0;
+              if (!bookIdFilter && cnt >= 4) continue;
+              perBookCount.set(row.book_id, cnt + 1);
+              retrievedChunks.push(row);
+              if (retrievedChunks.length >= 8) break;
+            }
+          } catch {
+            retrievedChunks = [];
+          }
+        }
+
+        // 1B. Search AgoraVox articles & comments (unless scope === 'books' or bookIdFilter is set)
+        if (keywords.length > 0 && sourceScope !== 'books' && !bookIdFilter) {
+          try {
+            const seenAvIds = new Set<number>();
+            const avMatches: AgoraVoxRow[] = [];
+
+            if (safeTerms.length >= 2) {
+              const avAndRes = await env.DB.prepare(
+                `SELECT ac.id, ac.source_type, ac.article_title, ac.article_url, ac.source_url, ac.author_name, ac.published_date, ac.content
+                 FROM agoravox_chunks_fts fts
+                 JOIN agoravox_chunks ac ON ac.id = fts.rowid
+                 WHERE agoravox_chunks_fts MATCH ?
+                 ORDER BY CASE WHEN ac.source_type = 'article' THEN 0 ELSE 1 END, rank
+                 LIMIT 6`
+              )
+                .bind(ftsAndQuery)
+                .all<AgoraVoxRow>()
+                .catch(() => ({ results: [] }));
+              for (const row of avAndRes.results || []) {
+                if (row.id && !seenAvIds.has(row.id)) {
+                  seenAvIds.add(row.id);
+                  avMatches.push(row);
+                }
+              }
+            }
+
+            if (avMatches.length < 5) {
+              const avOrRes = await env.DB.prepare(
+                `SELECT ac.id, ac.source_type, ac.article_title, ac.article_url, ac.source_url, ac.author_name, ac.published_date, ac.content
+                 FROM agoravox_chunks_fts fts
+                 JOIN agoravox_chunks ac ON ac.id = fts.rowid
+                 WHERE agoravox_chunks_fts MATCH ?
+                 ORDER BY rank
+                 LIMIT 8`
+              )
+                .bind(ftsOrQuery)
+                .all<AgoraVoxRow>()
+                .catch(() => ({ results: [] }));
+              for (const row of avOrRes.results || []) {
+                if (row.id && !seenAvIds.has(row.id)) {
+                  seenAvIds.add(row.id);
+                  avMatches.push(row);
+                }
+              }
+            }
+
+            retrievedAgoravox = avMatches.slice(0, sourceScope === 'agoravox' ? 8 : 5);
+          } catch {
+            retrievedAgoravox = [];
           }
         }
       }
 
-      const mode = retrievedChunks.length > 0 ? 'd1_literal' : 'catalog_synthesis';
+      const mode =
+        retrievedChunks.length > 0 || retrievedAgoravox.length > 0
+          ? 'd1_literal'
+          : 'catalog_synthesis';
 
-      // Build grounded documentary context for Gemini (compact to keep response fast)
+      // Build grounded documentary context for Gemini (books + AgoraVox)
+      const bookContextBlocks = retrievedChunks.map(
+        (c, idx) =>
+          `[LIVRE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1000)}`
+      );
+
+      const agoravoxContextBlocks = retrievedAgoravox.map(
+        (a, idx) =>
+          `[AGORAVOX ${idx + 1} | Type: ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article d’Émile Mourey'} | Titre: ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL: ${a.source_url}]\n${String(a.content || '').slice(0, 950)}`
+      );
+
       const contextBlocks =
-        retrievedChunks.length > 0
-          ? retrievedChunks.slice(0, 5).map(
-              (c, idx) =>
-                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1000)}`
-            )
+        bookContextBlocks.length > 0 || agoravoxContextBlocks.length > 0
+          ? [...bookContextBlocks, ...agoravoxContextBlocks]
           : fallbackContext.slice(0, 4).map(
               (fc: any, idx: number) =>
                 `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${String(fc.excerpt || '').slice(0, 950)}`
@@ -1481,13 +1601,13 @@ export default {
 
       const systemInstruction = [
         "Tu es l'assistant documentaire officiel des Éditions Émile Mourey.",
-        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses 12 ouvrages et dossiers d'études.",
+        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses ouvrages et à ses articles/débats publiés sur AgoraVox.",
         'Règles impératives :',
-        '1. Appuie-toi STRICTEMENT sur les passages littéraux et notices documentaires fournis ci-dessous. N’invente jamais une citation ni un numéro de page absent des sources.',
-        "2. Cite systématiquement les références exactes des ouvrages concernés (titre, tome, et numéro de page lorsqu'il figure dans les passages indexés).",
-        "3. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
-        "4. Si la question sort du périmètre des ouvrages fournis, indique-le honnêtement et oriente le lecteur vers les thèmes couverts par la collection.",
-        '5. Réponds en français soigné, structuré en paragraphes ou puces lisibles.'
+        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres et les extraits AgoraVox fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
+        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; titre de l'article (et nom du commentateur le cas échéant) avec mention d'AgoraVox pour les extraits AgoraVox.",
+        "3. Distingue clairement ce qui provient des ouvrages d'Émile Mourey, de ses articles AgoraVox et, le cas échéant, des réactions ou objections des commentateurs AgoraVox.",
+        "4. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
+        '5. Réponds en français soigné, structuré avec des titres clairs, des citations et des puces lisibles.'
       ].join('\n');
 
       const conversationTurns = history
@@ -1650,11 +1770,36 @@ export default {
           }
         }
 
+        // Deduplicate AgoraVox references (with direct article or #forum comment URL)
+        const avRefsMap = new Map<
+          string,
+          {
+            sourceType: 'article' | 'comment';
+            title: string;
+            authorName: string;
+            publishedDate: string;
+            url: string;
+          }
+        >();
+        for (const a of retrievedAgoravox) {
+          if (a.source_url && !avRefsMap.has(a.source_url)) {
+            avRefsMap.set(a.source_url, {
+              sourceType: a.source_type,
+              title: a.article_title,
+              authorName: a.author_name,
+              publishedDate: a.published_date || '',
+              url: a.source_url
+            });
+          }
+        }
+
         return json({
           ok: true,
           answer: answerText,
           references: Array.from(refsMap.values()),
+          agoravoxReferences: Array.from(avRefsMap.values()),
           indexedChunksUsed: retrievedChunks.length,
+          indexedAgoravoxUsed: retrievedAgoravox.length,
           mode,
           model
         });

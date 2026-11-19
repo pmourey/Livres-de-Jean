@@ -14,7 +14,9 @@ import {
   Database,
   Gift,
   Compass,
-  Loader2
+  Loader2,
+  ExternalLink,
+  MessageSquare
 } from 'lucide-react';
 
 interface AiReference {
@@ -24,13 +26,23 @@ interface AiReference {
   pages?: number[];
 }
 
+interface AgoraVoxReference {
+  sourceType: 'article' | 'comment';
+  title: string;
+  authorName: string;
+  publishedDate?: string;
+  url: string;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
   references?: AiReference[];
+  agoravoxReferences?: AgoraVoxReference[];
   mode?: 'd1_literal' | 'catalog_synthesis';
   indexedChunksUsed?: number;
+  indexedAgoravoxUsed?: number;
   model?: string;
   timestamp: string;
 }
@@ -197,11 +209,12 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
     localStorage.getItem('emile_mourey_ai_beta_sub') === 'active' ? 'beta_free' : null
   );
   const [indexedChunksCount, setIndexedChunksCount] = useState<number>(0);
+  const [indexedAgoravoxCount, setIndexedAgoravoxCount] = useState<number>(0);
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [isActivating, setIsActivating] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
 
-  const [selectedBookId, setSelectedBookId] = useState<string>('');
+  const [selectedScope, setSelectedScope] = useState<string>('all'); // 'all' | 'books' | 'agoravox' | <bookId>
   const [questionInput, setQuestionInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAsking, setIsAsking] = useState(false);
@@ -227,6 +240,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
           setIsSubscribed(Boolean(data?.subscribed));
           setSubPlan(data?.plan || null);
           setIndexedChunksCount(Number(data?.indexedChunksCount || 0));
+          setIndexedAgoravoxCount(Number(data?.indexedAgoravoxCount || 0));
           setGeminiConfigured(typeof data?.geminiConfigured === 'boolean' ? data.geminiConfigured : null);
           if (data?.subscribed) {
             localStorage.setItem('emile_mourey_ai_beta_sub', 'active');
@@ -284,8 +298,9 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
    */
   const buildFallbackContext = (query: string) => {
     const q = query.toLowerCase();
-    const targetBooks = selectedBookId
-      ? books.filter((b) => b.id === selectedBookId)
+    const isSpecificBook = selectedScope !== 'all' && selectedScope !== 'books' && selectedScope !== 'agoravox';
+    const targetBooks = isSpecificBook
+      ? books.filter((b) => b.id === selectedScope)
       : books;
 
     const scoredBooks = targetBooks
@@ -308,7 +323,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         return { book, score };
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, selectedBookId ? 1 : 6);
+      .slice(0, isSpecificBook ? 1 : 6);
 
     const bookContexts = scoredBooks.map(({ book }) => ({
       bookId: book.id,
@@ -368,8 +383,15 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         },
         body: JSON.stringify({
           question: q,
-          bookId: selectedBookId || undefined,
-          history: messages.slice(-6).map((m) => ({ role: m.role, text: m.text })),
+          sourceScope:
+            selectedScope === 'all' || selectedScope === 'books' || selectedScope === 'agoravox'
+              ? selectedScope
+              : 'books',
+          bookId:
+            selectedScope !== 'all' && selectedScope !== 'books' && selectedScope !== 'agoravox'
+              ? selectedScope
+              : undefined,
+          history: messages.slice(-4).map((m) => ({ role: m.role, text: m.text })),
           fallbackContext: buildFallbackContext(q)
         })
       });
@@ -393,8 +415,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         role: 'model',
         text: data.answer,
         references: Array.isArray(data.references) ? data.references : [],
+        agoravoxReferences: Array.isArray(data.agoravoxReferences) ? data.agoravoxReferences : [],
         mode: data.mode,
         indexedChunksUsed: data.indexedChunksUsed,
+        indexedAgoravoxUsed: data.indexedAgoravoxUsed,
         model: data.model,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
@@ -445,9 +469,9 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             <span className="inline-flex items-center gap-1.5">
               <Database className="w-4 h-4 text-[#D4AF37]" />
               <span>
-                {indexedChunksCount > 0
-                  ? `${indexedChunksCount.toLocaleString('fr-FR')} passages littéraux PDF indexés dans D1`
-                  : 'Mode RAG prêt (index littéral D1 + notices des 12 ouvrages)'}
+                {indexedChunksCount > 0 || indexedAgoravoxCount > 0
+                  ? `${indexedChunksCount.toLocaleString('fr-FR')} passages PDF + ${indexedAgoravoxCount.toLocaleString('fr-FR')} extraits AgoraVox indexés`
+                  : 'Mode RAG prêt (index littéral D1 + AgoraVox)'}
               </span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -592,17 +616,21 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                 </label>
                 <select
                   id="ai-book-scope"
-                  value={selectedBookId}
-                  onChange={(e) => setSelectedBookId(e.target.value)}
+                  value={selectedScope}
+                  onChange={(e) => setSelectedScope(e.target.value)}
                   className="px-2.5 py-1.5 bg-[#FAF8F5] border border-stone-300 rounded-md text-xs text-stone-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8B1E2D] max-w-xs"
                 >
-                  <option value="">Toute la collection (12 ouvrages)</option>
-                  {books.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.title}
-                      {b.tome ? ` (${b.tome})` : ''}
-                    </option>
-                  ))}
+                  <option value="all">Toute la base (Ouvrages + AgoraVox)</option>
+                  <option value="books">Uniquement les ouvrages</option>
+                  <option value="agoravox">Uniquement AgoraVox (articles & commentaires)</option>
+                  <optgroup label="Filtrer par ouvrage">
+                    {books.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title}
+                        {b.tome ? ` (${b.tome})` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -666,45 +694,73 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                           <div className="whitespace-pre-line">{msg.text}</div>
                         )}
 
-                        {msg.role === 'model' && msg.references && msg.references.length > 0 && (
-                          <div className="pt-3 border-t border-stone-100 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
-                              <span className="font-semibold text-stone-700 flex items-center gap-1">
-                                <BookOpen className="w-3.5 h-3.5 text-[#8B1E2D]" />
-                                Ouvrages & références cités :
-                              </span>
-                              <span className="font-mono text-[10px] bg-stone-100 px-2 py-0.5 rounded">
-                                {msg.mode === 'd1_literal'
-                                  ? `Index littéral D1 (${msg.indexedChunksUsed} passages)`
-                                  : 'Synthèse catalogue & dossiers'}
-                              </span>
+                        {msg.role === 'model' &&
+                          ((msg.references && msg.references.length > 0) ||
+                            (msg.agoravoxReferences && msg.agoravoxReferences.length > 0)) && (
+                            <div className="pt-3 border-t border-stone-100 space-y-2.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
+                                <span className="font-semibold text-stone-700 flex items-center gap-1">
+                                  <BookOpen className="w-3.5 h-3.5 text-[#8B1E2D]" />
+                                  Sources & références consultées :
+                                </span>
+                                <span className="font-mono text-[10px] bg-stone-100 px-2 py-0.5 rounded">
+                                  {msg.mode === 'd1_literal'
+                                    ? `${msg.indexedChunksUsed || 0} liv. · ${msg.indexedAgoravoxUsed || 0} AgoraVox`
+                                    : 'Synthèse catalogue & dossiers'}
+                                </span>
+                              </div>
+
+                              {msg.references && msg.references.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {msg.references.map((ref, idx) => {
+                                    const bookObj = books.find((b) => b.id === ref.bookId);
+                                    return (
+                                      <button
+                                        key={`${ref.bookId}-${idx}`}
+                                        type="button"
+                                        onClick={() => {
+                                          if (bookObj) onSelectBook(bookObj);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] hover:bg-[#8B1E2D] hover:text-white text-[#2B1810] border border-stone-300 hover:border-[#8B1E2D] rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                      >
+                                        <BookOpen className="w-3 h-3 shrink-0" />
+                                        <span>
+                                          {ref.title}
+                                          {ref.tome ? ` (${ref.tome})` : ''}
+                                          {ref.pages && ref.pages.length > 0
+                                            ? ` · p. ${ref.pages.sort((a, b) => a - b).join(', ')}`
+                                            : ''}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {msg.agoravoxReferences && msg.agoravoxReferences.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-0.5">
+                                  {msg.agoravoxReferences.map((av, idx) => (
+                                    <a
+                                      key={`${av.url}-${idx}`}
+                                      href={av.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded text-[11px] font-medium transition-colors"
+                                      title={av.url}
+                                    >
+                                      <MessageSquare className="w-3 h-3 shrink-0 text-[#8B1E2D]" />
+                                      <span className="max-w-[260px] truncate">
+                                        {av.sourceType === 'comment'
+                                          ? `Commentaire (${av.authorName}) — ${av.title}`
+                                          : `AgoraVox — ${av.title}`}
+                                      </span>
+                                      <ExternalLink className="w-3 h-3 shrink-0 text-amber-700" />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              {msg.references.map((ref, idx) => {
-                                const bookObj = books.find((b) => b.id === ref.bookId);
-                                return (
-                                  <button
-                                    key={`${ref.bookId}-${idx}`}
-                                    type="button"
-                                    onClick={() => {
-                                      if (bookObj) onSelectBook(bookObj);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] hover:bg-[#8B1E2D] hover:text-white text-[#2B1810] border border-stone-300 hover:border-[#8B1E2D] rounded text-[11px] font-medium transition-colors cursor-pointer"
-                                  >
-                                    <BookOpen className="w-3 h-3 shrink-0" />
-                                    <span>
-                                      {ref.title}
-                                      {ref.tome ? ` (${ref.tome})` : ''}
-                                      {ref.pages && ref.pages.length > 0
-                                        ? ` · p. ${ref.pages.sort((a, b) => a - b).join(', ')}`
-                                        : ''}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     </div>
                   ))
