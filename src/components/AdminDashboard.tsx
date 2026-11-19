@@ -3,6 +3,7 @@ import { Order, Book, ClaimTicket } from '../types';
 import { AUTHOR_INFO } from '../data/initialData';
 import { InvoiceView } from './InvoiceView';
 import { ShippingLabelView } from './ShippingLabelView';
+import { AdminModerationPanel } from './AdminModerationPanel';
 import { PAYMENTS_API_BASE } from '../config/commerce';
 import { 
   ShieldCheck, Package, DollarSign, Truck, AlertTriangle, Check, 
@@ -25,6 +26,7 @@ interface AdminDashboardProps {
   onToggleMaintenanceMode?: (enabled: boolean) => void;
   maintenanceMessage?: string;
   onUpdateMaintenanceMessage?: (message: string) => void;
+  initialTab?: 'orders' | 'books' | 'claims' | 'moderation';
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -40,7 +42,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isMaintenanceMode = false,
   onToggleMaintenanceMode,
   maintenanceMessage = "Les commandes et paiements d'ouvrages sont temporairement suspendus. La consultation du catalogue et la lecture des extraits restent disponibles.",
-  onUpdateMaintenanceMessage
+  onUpdateMaintenanceMessage,
+  initialTab = 'orders'
 }) => {
   // Admin Session State: strictly validate token from server
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
@@ -79,7 +82,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'books' | 'claims'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(initialTab);
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending_cheque' | 'to_ship' | 'delivered'>('all');
   
   // Selected modals
@@ -403,6 +411,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               SAV & Réclamations ({pendingClaims.length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('moderation');
+                if (window.location.hash !== '#/admin/moderation') {
+                  window.history.replaceState(null, '', '#/admin/moderation');
+                }
+              }}
+              className={`px-3 py-1.5 rounded font-medium transition-colors ${
+                activeTab === 'moderation' ? 'bg-amber-600 text-white' : 'text-stone-300 hover:text-white'
+              }`}
+            >
+              Modération
             </button>
           </div>
 
@@ -1152,6 +1173,9 @@ GMAIL_USER = "philippe.mourey@gmail.com"`}
           </div>
         </div>
       )}
+
+      {/* TAB 4: MODERATION (/admin/moderation) */}
+      {activeTab === 'moderation' && <AdminModerationPanel />}
 
       {/* Add Book Modal */}
       {showAddBookModal && (

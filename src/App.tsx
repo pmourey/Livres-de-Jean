@@ -27,8 +27,34 @@ import { Footer } from './components/Footer';
 import { PAYMENTS_API_BASE } from './config/commerce';
 
 export default function App() {
+  const isModerationPath = () => {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path.endsWith('/admin/moderation') || hash.includes('/admin/moderation');
+  };
+
   // Navigation View: 'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
-  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>('catalog');
+  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() =>
+    isModerationPath() ? 'admin' : 'catalog'
+  );
+  const [adminInitialTab, setAdminInitialTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(() =>
+    isModerationPath() ? 'moderation' : 'orders'
+  );
+
+  useEffect(() => {
+    const onRouteChange = () => {
+      if (isModerationPath()) {
+        setAdminInitialTab('moderation');
+        setCurrentView('admin');
+      }
+    };
+    window.addEventListener('hashchange', onRouteChange);
+    window.addEventListener('popstate', onRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', onRouteChange);
+      window.removeEventListener('popstate', onRouteChange);
+    };
+  }, []);
 
   // Persistence State
   const [books, setBooks] = useState<Book[]>(() => {
@@ -666,6 +692,12 @@ export default function App() {
               setCurrentView('legal');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onNavigateAccount={() => {
+              setCurrentView('account');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            customerToken={customerToken}
+            defaultAuthorName={`${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()}
           />
         )}
 
@@ -793,6 +825,7 @@ export default function App() {
             onToggleMaintenanceMode={(val) => setIsMaintenanceMode(val)}
             maintenanceMessage={maintenanceMessage}
             onUpdateMaintenanceMessage={(msg) => setMaintenanceMessage(msg)}
+            initialTab={adminInitialTab}
           />
         )}
       </main>

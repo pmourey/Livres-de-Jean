@@ -88,6 +88,23 @@ async function ensureTables(db?: D1Database) {
         expires_at INTEGER NOT NULL
       )
     `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_slug TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        content TEXT NOT NULL CHECK (length(content) <= 1500),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        charter_accepted_at TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        moderated_at TEXT
+      )
+    `).run();
+    await db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_comments_slug_status
+      ON comments (target_slug, status, created_at DESC)
+    `).run();
   } catch (err) {
     console.warn('ensureTables warning:', err);
   }
@@ -98,7 +115,7 @@ const json = (data: unknown, init?: ResponseInit) =>
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'access-control-allow-origin': '*',
-      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
       'access-control-allow-headers': 'Content-Type, Authorization'
     },
     ...init
@@ -106,7 +123,7 @@ const json = (data: unknown, init?: ResponseInit) =>
 
 const corsHeaders = {
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET,POST,OPTIONS',
+  'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
   'access-control-allow-headers': 'Content-Type, Authorization'
 };
 
@@ -1017,6 +1034,193 @@ export default {
         return json({ error: 'Session auteur expirée ou non autorisée' }, { status: 401 });
       }
       return json({ ok: true, role: 'admin' });
+    }
+
+    // =========================================================================
+    // MODERATED COMMENTS API (A-priori moderation, isolated `comments` table)
+    // =========================================================================
+
+    // Public: GET /api/comments?slug=... -> returns ONLY approved comments
+    if (pathname === '/api/comments' && request.method === 'GET') {
+      if (!env.DB) {
+        return json({ comments: [] });
+      }
+      await ensureTables(env.DB);
+      const slug = (url.searchParams.get('slug') || '').trim();
+      try {
+        const stmt = slug
+          ? env.DB.prepare(
+              `SELECT id, target_slug, author_name, content, status, created_at, moderated_at
+               FROM comments
+               WHERE status = 'approved' AND target_slug = ?
+               ORDER BY created_at DESC, id DESC`
+            ).bind(slug)
+          : env.DB.prepare(
+              `SELECT id, target_slug, author_name, content, status, created_at, moderated_at
+               FROM comments
+               WHERE status = 'approved'
+               ORDER BY created_at DESC, id DESC`
+            );
+        const rows = await stmt.all();
+        return json({ ok: true, comments: rows.results || [] });
+      } catch (err) {
+        console.error('GET /api/comments error:', err);
+        return json({ error: 'Impossible de charger les commentaires.' }, { status: 500 });
+      }
+    }
+
+    // Authenticated customer: POST /api/comments -> inserts with status = 'pending'
+    if (pathname === '/api/comments' && request.method === 'POST') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json(
+          { error: 'Authentification requise : veuillez vous connecter à votre Espace Client pour publier un commentaire.' },
+          { status: 401 }
+        );
+      }
+
+      const body = await readJson(request);
+      const targetSlug = String(body?.target_slug || body?.slug || '').trim();
+      const authorName = String(body?.author_name || body?.authorName || '').trim();
+      const content = String(body?.content || '').trim();
+      const charterAccepted = body?.charterAccepted === true || body?.charter_accepted === true;
+
+      if (!charterAccepted) {
+        return json(
+          { error: "Vous devez accepter la charte d'utilisation et les mentions légales (RGPD / LCEN) avant l'envoi." },
+          { status: 400 }
+        );
+      }
+      if (!targetSlug || targetSlug.length > 120) {
+        return json({ error: 'Identifiant du dossier ou de l’ouvrage (target_slug) invalide.' }, { status: 400 });
+      }
+      if (!authorName || authorName.length < 2 || authorName.length > 80) {
+        return json({ error: 'Le pseudonyme affiché doit contenir entre 2 et 80 caractères.' }, { status: 400 });
+      }
+      if (!content || content.length > 1500) {
+        return json({ error: 'Le commentaire est requis et ne doit pas dépasser 1 500 caractères.' }, { status: 400 });
+      }
+      if (!env.DB) {
+        return json({ error: 'Base D1 non configurée sur le Worker.' }, { status: 500 });
+      }
+
+      await ensureTables(env.DB);
+      const userId = customerIdFromEmail(session.email);
+      const charterAcceptedAt = new Date().toISOString();
+
+      try {
+        const result = await env.DB.prepare(
+          `INSERT INTO comments (target_slug, user_id, author_name, content, status, charter_accepted_at)
+           VALUES (?, ?, ?, ?, 'pending', ?)`
+        )
+          .bind(targetSlug, userId, authorName, content, charterAcceptedAt)
+          .run();
+
+        return json(
+          {
+            ok: true,
+            id: result?.meta?.last_row_id ?? null,
+            status: 'pending',
+            charter_accepted_at: charterAcceptedAt,
+            message: 'Votre commentaire a bien été enregistré et sera publié après validation par la modération.'
+          },
+          { status: 201 }
+        );
+      } catch (err) {
+        console.error('POST /api/comments error:', err);
+        return json({ error: "Impossible d'enregistrer le commentaire." }, { status: 500 });
+      }
+    }
+
+    // Admin Authorization helper check: GET /api/admin/comments
+    if (pathname === '/api/admin/comments' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const verified = token ? await verifyAdminToken(env, token) : null;
+      if (!verified || verified.role !== 'admin') {
+        return json({ error: 'Accès refusé : rôle administrateur requis pour la modération.' }, { status: 403 });
+      }
+      if (!env.DB) {
+        return json({ ok: true, comments: [] });
+      }
+
+      await ensureTables(env.DB);
+      const statusFilter = (url.searchParams.get('status') || 'all').trim();
+      try {
+        const validStatuses = ['pending', 'approved', 'rejected'];
+        const stmt = validStatuses.includes(statusFilter)
+          ? env.DB.prepare(
+              `SELECT id, target_slug, user_id, author_name, content, status, charter_accepted_at, created_at, moderated_at
+               FROM comments
+               WHERE status = ?
+               ORDER BY created_at DESC, id DESC`
+            ).bind(statusFilter)
+          : env.DB.prepare(
+              `SELECT id, target_slug, user_id, author_name, content, status, charter_accepted_at, created_at, moderated_at
+               FROM comments
+               ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC, id DESC`
+            );
+        const rows = await stmt.all();
+        return json({ ok: true, comments: rows.results || [] });
+      } catch (err) {
+        console.error('GET /api/admin/comments error:', err);
+        return json({ error: 'Erreur lors du chargement de la file de modération.' }, { status: 500 });
+      }
+    }
+
+    // Admin Authorization: PATCH /api/admin/comments/:id -> approve or reject
+    const adminCommentMatch = pathname.match(/^\/api\/admin\/comments\/(\d+)$/);
+    if (adminCommentMatch && request.method === 'PATCH') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const verified = token ? await verifyAdminToken(env, token) : null;
+      if (!verified || verified.role !== 'admin') {
+        return json({ error: 'Accès refusé : autorisation administrateur requise.' }, { status: 403 });
+      }
+
+      const commentId = Number(adminCommentMatch[1]);
+      const body = await readJson(request);
+      const nextStatus = String(body?.status || '').trim();
+      if (!Number.isInteger(commentId) || commentId <= 0) {
+        return json({ error: 'Identifiant de commentaire invalide.' }, { status: 400 });
+      }
+      if (nextStatus !== 'approved' && nextStatus !== 'rejected') {
+        return json({ error: "Statut invalide : valeurs autorisées 'approved' ou 'rejected'." }, { status: 400 });
+      }
+      if (!env.DB) {
+        return json({ error: 'Base D1 non configurée sur le Worker.' }, { status: 500 });
+      }
+
+      await ensureTables(env.DB);
+      const moderatedAt = new Date().toISOString();
+
+      try {
+        const existing = await env.DB.prepare('SELECT id FROM comments WHERE id = ?').bind(commentId).first();
+        if (!existing) {
+          return json({ error: 'Commentaire introuvable.' }, { status: 404 });
+        }
+
+        await env.DB.prepare(
+          'UPDATE comments SET status = ?, moderated_at = ? WHERE id = ?'
+        )
+          .bind(nextStatus, moderatedAt, commentId)
+          .run();
+
+        const updated = await env.DB.prepare(
+          `SELECT id, target_slug, user_id, author_name, content, status, charter_accepted_at, created_at, moderated_at
+           FROM comments WHERE id = ?`
+        )
+          .bind(commentId)
+          .first();
+
+        return json({
+          ok: true,
+          comment: updated,
+          message: nextStatus === 'approved' ? 'Commentaire approuvé et publié.' : 'Commentaire refusé.'
+        });
+      } catch (err) {
+        console.error('PATCH /api/admin/comments/:id error:', err);
+        return json({ error: 'Erreur lors de la modération du commentaire.' }, { status: 500 });
+      }
     }
 
     // Author Back-Office: Test SMTP configuration

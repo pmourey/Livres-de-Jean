@@ -14,15 +14,22 @@ import {
   Sparkles
 } from 'lucide-react';
 import { AGORAVOX_CARDS, AGORAVOX_META } from '../data/agoravoxQuotes';
+import { CommentsSection } from './CommentsSection';
 
 interface MethodControversySectionProps {
   onNavigateCatalog: () => void;
   onNavigateLegal?: () => void;
+  onNavigateAccount?: () => void;
+  customerToken?: string;
+  defaultAuthorName?: string;
 }
 
 export const MethodControversySection: React.FC<MethodControversySectionProps> = ({
   onNavigateCatalog,
-  onNavigateLegal
+  onNavigateLegal,
+  onNavigateAccount,
+  customerToken = '',
+  defaultAuthorName = ''
 }) => {
   return (
     <div className="space-y-14 pb-12">
@@ -460,6 +467,15 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
           })}
         </div>
       </section>
+
+      {/* Espace de commentaires modérés a priori (placé sous Voix d'AgoraVox) */}
+      <CommentsSection
+        targetSlug="methode-et-controverse"
+        customerToken={customerToken}
+        defaultAuthorName={defaultAuthorName}
+        onNavigateAccount={onNavigateAccount || onNavigateCatalog}
+        onNavigateLegal={onNavigateLegal}
+      />
     </div>
   );
 };
