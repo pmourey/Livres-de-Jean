@@ -34,16 +34,36 @@ export default function App() {
     return path.endsWith('/admin/moderation') || hash.includes('/admin/moderation');
   };
 
-  // Navigation View: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
-  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() =>
-    isModerationPath() ? 'admin' : 'catalog'
+  const extractSharedAiSessionId = (): string | null => {
+    const m =
+      window.location.hash.match(/#\/ai\/share\/([a-zA-Z0-9_-]{4,32})/) ||
+      window.location.pathname.match(/\/ai\/share\/([a-zA-Z0-9_-]{4,32})/);
+    return m ? m[1] : null;
+  };
+
+  const [sharedAiSessionId, setSharedAiSessionId] = useState<string | null>(() =>
+    extractSharedAiSessionId()
   );
+
+  // Navigation View: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
+  const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() => {
+    if (extractSharedAiSessionId()) return 'ai';
+    if (isModerationPath()) return 'admin';
+    return 'catalog';
+  });
   const [adminInitialTab, setAdminInitialTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(() =>
     isModerationPath() ? 'moderation' : 'orders'
   );
 
   useEffect(() => {
     const onRouteChange = () => {
+      const shareId = extractSharedAiSessionId();
+      if (shareId) {
+        setSharedAiSessionId(shareId);
+        setCurrentView('ai');
+        return;
+      }
+      setSharedAiSessionId(null);
       if (isModerationPath()) {
         setAdminInitialTab('moderation');
         setCurrentView('admin');
@@ -709,6 +729,13 @@ export default function App() {
             books={books}
             customerToken={customerToken}
             customerEmail={currentUser?.email}
+            sharedSessionId={sharedAiSessionId}
+            onExitSharedSession={() => {
+              setSharedAiSessionId(null);
+              if (window.location.hash.includes('/ai/share/')) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              }
+            }}
             onSelectBook={(book) => setSelectedBook(book)}
             onNavigateAccount={() => {
               setCurrentView('account');

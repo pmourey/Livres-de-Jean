@@ -16,7 +16,14 @@ import {
   Compass,
   Loader2,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Plus,
+  History,
+  Share2,
+  Trash2,
+  Copy,
+  Check,
+  ArrowLeft
 } from 'lucide-react';
 
 interface AiReference {
@@ -47,14 +54,33 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  scope: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+  shareUrl?: string;
+}
+
 interface AiAssistantSectionProps {
   books: Book[];
   customerToken: string;
   customerEmail?: string;
+  sharedSessionId?: string | null;
+  onExitSharedSession?: () => void;
   onSelectBook: (book: Book) => void;
   onNavigateAccount: () => void;
   onNavigateMethod: () => void;
 }
+
+const SESSIONS_STORAGE_KEY = 'emile_mourey_ai_sessions_v1';
+
+const FOLLOW_UP_PROMPTS = [
+  'Peux-tu approfondir avec des citations littérales et numéros de pages précis ?',
+  'Quelles sont les principales objections archéologiques ou universitaires sur ce point ?',
+  "Qu'en disent les lecteurs et les réponses d'Émile Mourey dans les commentaires AgoraVox ?"
+];
 
 const SUGGESTED_QUESTIONS = [
   "Où Émile Mourey situe-t-il Bibracte et quel rôle stratégique attribue-t-il au mont Beuvray ?",
@@ -254,6 +280,8 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   books,
   customerToken,
   customerEmail,
+  sharedSessionId = null,
+  onExitSharedSession,
   onSelectBook,
   onNavigateAccount,
   onNavigateMethod
@@ -273,13 +301,153 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   const [isActivating, setIsActivating] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
 
-  const [selectedScope, setSelectedScope] = useState<string>('all'); // 'all' | 'books' | 'agoravox' | <bookId>
+  // Multi-session persistent history (per question / topic)
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(SESSIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0].id;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId) || null;
+  const messages: ChatMessage[] = activeSession?.messages || [];
+
+  const [selectedScope, setSelectedScope] = useState<string>(activeSession?.scope || 'all');
   const [questionInput, setQuestionInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAsking, setIsAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
 
+  // Share state
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [copiedShareUrl, setCopiedShareUrl] = useState(false);
+
+  // Public shared read-only session state
+  const [sharedViewData, setSharedViewData] = useState<{
+    id: string;
+    title: string;
+    scope: string;
+    createdAt: string;
+    messages: ChatMessage[];
+  } | null>(null);
+  const [isLoadingShared, setIsLoadingShared] = useState(false);
+  const [sharedLoadError, setSharedLoadError] = useState<string | null>(null);
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions.slice(0, 30)));
+    } catch {
+      // ignore quota errors
+    }
+  }, [sessions]);
+
+  // Load shared public session when URL is #/ai/share/:id
+  useEffect(() => {
+    if (!sharedSessionId) {
+      setSharedViewData(null);
+      setSharedLoadError(null);
+      return;
+    }
+    setIsLoadingShared(true);
+    setSharedLoadError(null);
+    fetch(`${PAYMENTS_API_BASE}/api/ai/sessions/share/${encodeURIComponent(sharedSessionId)}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.session) {
+          throw new Error(data?.error || 'Session partagée introuvable.');
+        }
+        setSharedViewData(data.session);
+      })
+      .catch((err: any) => {
+        setSharedLoadError(err?.message || 'Impossible de charger cette session partagée.');
+      })
+      .finally(() => {
+        setIsLoadingShared(false);
+      });
+  }, [sharedSessionId]);
+
+  const handleNewSession = () => {
+    setActiveSessionId(null);
+    setAskError(null);
+    setShareError(null);
+    setCopiedShareUrl(false);
+  };
+
+  const handleSelectSession = (session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setSelectedScope(session.scope || 'all');
+    setAskError(null);
+    setShareError(null);
+    setCopiedShareUrl(false);
+  };
+
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    if (activeSessionId === id) {
+      setActiveSessionId(null);
+    }
+  };
+
+  const handleShareSession = async () => {
+    if (!activeSession || activeSession.messages.length === 0 || isSharing) return;
+    setIsSharing(true);
+    setShareError(null);
+    setCopiedShareUrl(false);
+    try {
+      const res = await fetch(`${PAYMENTS_API_BASE}/api/ai/sessions/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${customerToken}`
+        },
+        body: JSON.stringify({
+          title: activeSession.title,
+          scope: activeSession.scope,
+          messages: activeSession.messages
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.shareUrl) {
+        throw new Error(data?.error || 'Impossible de générer le lien de partage.');
+      }
+      const shareUrl = String(data.shareUrl);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === activeSession.id ? { ...s, shareUrl } : s))
+      );
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedShareUrl(true);
+        setTimeout(() => setCopiedShareUrl(false), 4000);
+      } catch {
+        // clipboard may be blocked; URL is displayed visibly below
+      }
+    } catch (err: any) {
+      setShareError(err?.message || 'Erreur lors du partage de la session.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -423,13 +591,49 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
     if (!q || isAsking) return;
 
     setAskError(null);
+    setShareError(null);
+    const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const nowIso = new Date().toISOString();
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
       text: q,
-      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      timestamp: nowTime
     };
-    setMessages((prev) => [...prev, userMsg]);
+
+    const currentHistory = messages.slice(-10).map((m) => ({ role: m.role, text: m.text }));
+    let targetSessionId = activeSessionId;
+
+    if (!targetSessionId || !sessions.some((s) => s.id === targetSessionId)) {
+      targetSessionId = `sess-${Date.now()}`;
+      const newSession: ChatSession = {
+        id: targetSessionId,
+        title: q.length > 72 ? `${q.slice(0, 70)}…` : q,
+        scope: selectedScope,
+        updatedAt: nowIso,
+        messages: [userMsg]
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setActiveSessionId(targetSessionId);
+    } else {
+      const sid = targetSessionId;
+      setSessions((prev) =>
+        prev
+          .map((s) =>
+            s.id === sid
+              ? {
+                  ...s,
+                  scope: selectedScope,
+                  updatedAt: nowIso,
+                  shareUrl: undefined, // invalidate old snapshot if conversation continues
+                  messages: [...s.messages, userMsg]
+                }
+              : s
+          )
+          .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
+      );
+    }
+
     if (!questionOverride) setQuestionInput('');
     setIsAsking(true);
 
@@ -450,7 +654,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             selectedScope !== 'all' && selectedScope !== 'books' && selectedScope !== 'agoravox'
               ? selectedScope
               : undefined,
-          history: messages.slice(-4).map((m) => ({ role: m.role, text: m.text })),
+          history: currentHistory,
           fallbackContext: buildFallbackContext(q)
         })
       });
@@ -481,7 +685,15 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         model: data.model,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
-      setMessages((prev) => [...prev, aiMsg]);
+
+      const sid = targetSessionId;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sid
+            ? { ...s, updatedAt: new Date().toISOString(), messages: [...s.messages, aiMsg] }
+            : s
+        )
+      );
     } catch (err: any) {
       setAskError(err?.message || "Impossible d'obtenir une réponse de l'Assistant IA.");
     } finally {
@@ -541,9 +753,139 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* ÉTAPE 1 : Non connecté */}
-        {!isAuthenticated ? (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* VUE PUBLIQUE EN LECTURE SEULE : Session partagée (#/ai/share/:id) */}
+        {sharedSessionId ? (
+          <div className="space-y-5">
+            <div className="bg-[#F5F1E9] border border-stone-300 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-cinzel uppercase tracking-wider font-bold text-[#8B1E2D]">
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Session Assistant IA partagée · Lecture seule</span>
+                </span>
+                <h2 className="font-serif-display text-xl sm:text-2xl font-bold text-[#2B1810]">
+                  {sharedViewData?.title || 'Chargement de la session partagée...'}
+                </h2>
+                {sharedViewData?.createdAt && (
+                  <p className="text-[11px] text-stone-500">
+                    Instantané partagé le {sharedViewData.createdAt}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onExitSharedSession?.()}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-semibold rounded-md shadow-xs transition-colors shrink-0 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Poser ma propre question</span>
+              </button>
+            </div>
+
+            {isLoadingShared ? (
+              <div className="bg-white border border-stone-200 rounded-xl p-8 text-center text-xs text-stone-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#8B1E2D]" />
+                <span>Chargement de la conversation partagée...</span>
+              </div>
+            ) : sharedLoadError ? (
+              <div className="p-5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{sharedLoadError}</span>
+              </div>
+            ) : (
+              <div className="bg-white border border-stone-200 rounded-xl p-5 sm:p-6 shadow-xs space-y-5 bg-[#FAF8F5]/50">
+                {(sharedViewData?.messages || []).map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${
+                      msg.role === 'user' ? 'items-end' : 'items-start'
+                    }`}
+                  >
+                    <div
+                      className={`max-w-3xl rounded-xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed space-y-3 ${
+                        msg.role === 'user'
+                          ? 'bg-[#2B1810] text-stone-100'
+                          : 'bg-white border border-stone-200 text-stone-800 shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-4 text-[10px] uppercase tracking-wider opacity-75">
+                        <span className="font-bold">
+                          {msg.role === 'user'
+                            ? 'Question posée'
+                            : 'Assistant Documentaire · Éditions Émile Mourey'}
+                        </span>
+                        <span>{msg.timestamp}</span>
+                      </div>
+                      {msg.role === 'model' ? (
+                        <FormattedAiText
+                          text={msg.text}
+                          agoravoxReferences={msg.agoravoxReferences}
+                        />
+                      ) : (
+                        <div className="whitespace-pre-line">{msg.text}</div>
+                      )}
+
+                      {msg.role === 'model' &&
+                        ((msg.references && msg.references.length > 0) ||
+                          (msg.agoravoxReferences && msg.agoravoxReferences.length > 0)) && (
+                          <div className="pt-3 border-t border-stone-100 space-y-2">
+                            {msg.references && msg.references.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {msg.references.map((ref, idx) => {
+                                  const bookObj = books.find((b) => b.id === ref.bookId);
+                                  return (
+                                    <button
+                                      key={`${ref.bookId}-${idx}`}
+                                      type="button"
+                                      onClick={() => {
+                                        if (bookObj) onSelectBook(bookObj);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] hover:bg-[#8B1E2D] hover:text-white text-[#2B1810] border border-stone-300 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                    >
+                                      <BookOpen className="w-3 h-3 shrink-0" />
+                                      <span>
+                                        {ref.title}
+                                        {ref.tome ? ` (${ref.tome})` : ''}
+                                        {ref.pages && ref.pages.length > 0
+                                          ? ` · p. ${ref.pages.sort((a, b) => a - b).join(', ')}`
+                                          : ''}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {msg.agoravoxReferences && msg.agoravoxReferences.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {msg.agoravoxReferences.map((av, idx) => (
+                                  <a
+                                    key={`${av.url}-${idx}`}
+                                    href={av.url.replace(/^http:\/\/(www\.)?agoravox\.fr/i, 'https://www.agoravox.fr')}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded text-[11px] font-medium"
+                                  >
+                                    <MessageSquare className="w-3 h-3 shrink-0 text-[#8B1E2D]" />
+                                    <span className="max-w-[260px] truncate">
+                                      {av.sourceType === 'comment'
+                                        ? `Commentaire (${av.authorName}) — ${av.title}`
+                                        : `AgoraVox — ${av.title}`}
+                                    </span>
+                                    <ExternalLink className="w-3 h-3 shrink-0 text-amber-700" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : !isAuthenticated ? (
           <div className="bg-white border-2 border-stone-200 rounded-xl p-6 sm:p-8 shadow-xs space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-2 max-w-2xl">
@@ -650,10 +992,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             )}
           </div>
         ) : (
-          /* ÉTAPE 3 : Abonné actif -> Interface de Chat IA temps réel */
+          /* ÉTAPE 3 : Abonné actif -> Historique multi-sessions + Chat IA temps réel + Partage */
           <div className="space-y-5">
-            {/* Barre de statut abonnement & filtre d'ouvrage */}
-            <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Barre de statut abonnement, actions session & filtre de périmètre */}
+            <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -669,7 +1011,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
                 <label htmlFor="ai-book-scope" className="text-stone-600 font-medium whitespace-nowrap">
                   Périmètre :
                 </label>
@@ -691,12 +1033,139 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                     ))}
                   </optgroup>
                 </select>
+
+                {activeSession && activeSession.messages.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isSharing}
+                    onClick={() => void handleShareSession()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-amber-300 font-semibold rounded-md transition-colors cursor-pointer"
+                    title="Créer un lien public en lecture seule pour partager cette conversation"
+                  >
+                    {copiedShareUrl ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Lien copié !</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>{isSharing ? 'Partage...' : 'Partager la session'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Zone de conversation */}
-            <div className="bg-white border border-stone-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
-              <div className="p-5 sm:p-6 min-h-[340px] max-h-[560px] overflow-y-auto space-y-5 bg-[#FAF8F5]/50">
+            {/* Bandeau lien de partage généré */}
+            {activeSession?.shareUrl && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Share2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span className="font-semibold shrink-0">Lien de partage (lecture seule) :</span>
+                  <a
+                    href={activeSession.shareUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-[11px] text-emerald-900 underline truncate"
+                  >
+                    {activeSession.shareUrl}
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(activeSession.shareUrl!);
+                    setCopiedShareUrl(true);
+                    setTimeout(() => setCopiedShareUrl(false), 3000);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded font-semibold shrink-0 cursor-pointer"
+                >
+                  {copiedShareUrl ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedShareUrl ? 'Copié' : 'Copier'}</span>
+                </button>
+              </div>
+            )}
+
+            {shareError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{shareError}</span>
+              </div>
+            )}
+
+            {/* Grille 2 colonnes : Historique des sessions (gauche) + Conversation active (droite) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Colonne Historique des sessions */}
+              <aside className="lg:col-span-3 bg-white border border-stone-200 rounded-xl p-3.5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+                  <span className="text-xs font-bold text-[#2B1810] flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5 text-[#8B1E2D]" />
+                    <span>Sessions ({sessions.length})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNewSession}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#8B1E2D] hover:bg-[#721824] text-white text-[11px] font-semibold rounded transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Nouvelle</span>
+                  </button>
+                </div>
+
+                {sessions.length === 0 ? (
+                  <p className="text-[11px] text-stone-500 py-3 text-center leading-relaxed">
+                    Vos sessions de recherche s'enregistreront ici pour vous permettre de les reprendre et les approfondir.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-0.5">
+                    {sessions.map((sess) => {
+                      const isCurrent = sess.id === activeSessionId;
+                      return (
+                        <div
+                          key={sess.id}
+                          onClick={() => handleSelectSession(sess)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') handleSelectSession(sess);
+                          }}
+                          className={`group p-2.5 rounded-lg border text-left transition-colors cursor-pointer flex items-start justify-between gap-2 ${
+                            isCurrent
+                              ? 'bg-[#FAF8F5] border-[#8B1E2D] shadow-2xs'
+                              : 'bg-white border-stone-200/80 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <p className="text-xs font-semibold text-[#2B1810] line-clamp-2 leading-snug">
+                              {sess.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                              <span>{sess.messages.length} éch.</span>
+                              {sess.shareUrl && (
+                                <span className="text-emerald-700 font-medium">· Partagée</span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSession(sess.id, e)}
+                            title="Supprimer cette session"
+                            className="p-1 text-stone-400 hover:text-rose-700 opacity-60 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </aside>
+
+              {/* Colonne Conversation active */}
+              <div className="lg:col-span-9 bg-white border border-stone-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
+                <div className="p-5 sm:p-6 min-h-[360px] max-h-[600px] overflow-y-auto space-y-5 bg-[#FAF8F5]/50">
                 {messages.length === 0 ? (
                   <div className="space-y-5 py-4">
                     <div className="text-center space-y-1.5 max-w-xl mx-auto">
@@ -845,6 +1314,25 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                 </div>
               )}
 
+              {/* Suggestions d'approfondissement rapide quand une session est active */}
+              {messages.length > 0 && !isAsking && (
+                <div className="px-4 py-2.5 bg-[#FAF8F5] border-t border-stone-200/80 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mr-1">
+                    Approfondir :
+                  </span>
+                  {FOLLOW_UP_PROMPTS.map((fp, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => void handleAsk(fp)}
+                      className="text-[11px] px-2.5 py-1 bg-white hover:bg-[#F5F1E9] text-stone-700 hover:text-[#8B1E2D] border border-stone-200 hover:border-[#8B1E2D]/40 rounded-full transition-colors cursor-pointer"
+                    >
+                      {fp}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Formulaire de question */}
               <form
                 onSubmit={(e) => {
@@ -858,7 +1346,11 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                   value={questionInput}
                   onChange={(e) => setQuestionInput(e.target.value)}
                   maxLength={1000}
-                  placeholder="Posez une question sur Bibracte, Alésia, Gergovie, le judéo-druidisme, le Christ, Mahomet..."
+                  placeholder={
+                    messages.length > 0
+                      ? 'Approfondissez votre question dans cette session...'
+                      : 'Posez une question sur Bibracte, Alésia, Gergovie, le judéo-druidisme, le Christ, Mahomet...'
+                  }
                   className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm bg-[#FAF8F5] border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B1E2D] focus:bg-white"
                 />
                 <button
@@ -867,9 +1359,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#8B1E2D] hover:bg-[#721824] disabled:opacity-50 text-white text-xs font-semibold rounded-md shadow-xs transition-colors cursor-pointer shrink-0"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Interroger l'IA</span>
+                  <span>{messages.length > 0 ? 'Approfondir' : "Interroger l'IA"}</span>
                 </button>
               </form>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500 px-1">

@@ -131,6 +131,16 @@ async function ensureTables(db?: D1Database) {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ai_shared_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        scope TEXT DEFAULT 'all',
+        messages_json TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
   } catch (err) {
     console.warn('ensureTables warning:', err);
   }
@@ -1393,7 +1403,7 @@ export default {
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
       const sourceScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox'
-      const history = Array.isArray(body?.history) ? body.history.slice(-4) : [];
+      const history = Array.isArray(body?.history) ? body.history.slice(-10) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
       if (!question || question.length > 1000) {
@@ -1885,6 +1895,96 @@ export default {
       } catch (err: any) {
         console.error('POST /api/ai/ask error:', err);
         return json({ error: err?.message || "Erreur lors de l'appel à Gemini." }, { status: 500 });
+      }
+    }
+
+    // Authenticated customer: POST /api/ai/sessions/share -> create a shareable read-only snapshot in D1
+    if (pathname === '/api/ai/sessions/share' && request.method === 'POST') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Authentification requise pour partager une session.' }, { status: 401 });
+      }
+      if (!env.DB) {
+        return json({ error: 'Base D1 non configurée.' }, { status: 500 });
+      }
+
+      const body = await readJson(request);
+      const title = String(body?.title || 'Session Assistant IA — Éditions Émile Mourey').trim().slice(0, 180);
+      const scope = String(body?.scope || 'all').trim().slice(0, 80);
+      const messages = Array.isArray(body?.messages) ? body.messages.slice(0, 40) : [];
+      if (messages.length === 0) {
+        return json({ error: 'Impossible de partager une session vide.' }, { status: 400 });
+      }
+
+      await ensureTables(env.DB);
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      const shareId = 'em-' + Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 10);
+      const userId = customerIdFromEmail(session.email);
+
+      try {
+        await env.DB.prepare(
+          `INSERT INTO ai_shared_sessions (id, user_id, title, scope, messages_json)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+          .bind(shareId, userId, title, scope, JSON.stringify(messages))
+          .run();
+
+        const baseSite = (env.SITE_URL || 'https://pmourey.github.io/Livres-de-Jean').replace(/\/+$/, '');
+        return json(
+          {
+            ok: true,
+            shareId,
+            shareUrl: `${baseSite}/#/ai/share/${shareId}`
+          },
+          { status: 201 }
+        );
+      } catch (err) {
+        console.error('POST /api/ai/sessions/share error:', err);
+        return json({ error: 'Impossible de créer le lien de partage.' }, { status: 500 });
+      }
+    }
+
+    // Public read-only: GET /api/ai/sessions/share/:id -> load a shared AI chat session
+    const shareMatch = pathname.match(/^\/api\/ai\/sessions\/share\/([a-zA-Z0-9_-]{4,32})$/);
+    if (shareMatch && request.method === 'GET') {
+      if (!env.DB) {
+        return json({ error: 'Base D1 non configurée.' }, { status: 500 });
+      }
+      await ensureTables(env.DB);
+      const shareId = shareMatch[1];
+      try {
+        const row = await env.DB.prepare(
+          'SELECT id, title, scope, messages_json, created_at FROM ai_shared_sessions WHERE id = ?'
+        )
+          .bind(shareId)
+          .first<{ id: string; title: string; scope: string; messages_json: string; created_at: string }>();
+
+        if (!row) {
+          return json({ error: 'Session partagée introuvable ou expirée.' }, { status: 404 });
+        }
+
+        let messages = [];
+        try {
+          messages = JSON.parse(row.messages_json);
+        } catch {
+          messages = [];
+        }
+
+        return json({
+          ok: true,
+          session: {
+            id: row.id,
+            title: row.title,
+            scope: row.scope,
+            createdAt: row.created_at,
+            messages
+          }
+        });
+      } catch (err) {
+        console.error('GET /api/ai/sessions/share/:id error:', err);
+        return json({ error: 'Impossible de charger cette session partagée.' }, { status: 500 });
       }
     }
 
