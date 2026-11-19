@@ -1625,16 +1625,27 @@ export default {
             const seenAcadIds = new Set<number>();
             const acadMatches: AcademicRow[] = [];
 
-            if (safeTerms.length >= 2) {
+            // Domain / site terms get a focused AND query first so canonical archaeological reports rank #1
+            const domainPriorityRegex =
+              /^(bibracte|beuvray|gorgobina|alesia|alise|auxois|gergovie|merdogne|corent|arverne|eduen|peutinger|vezelay|autun|augustodunum|cabillonum|chalon|qumran|essenien|mahomet|coran|tabari|mecque)/;
+            const domainTerms = safeTerms.filter((t) => domainPriorityRegex.test(t.replace(/"/g, '')));
+            const acadPrecisionQuery =
+              domainTerms.length >= 2
+                ? domainTerms.slice(0, 2).join(' AND ')
+                : domainTerms.length === 1
+                  ? domainTerms[0]
+                  : ftsAndQuery;
+
+            if (acadPrecisionQuery) {
               const acadAndRes = await env.DB.prepare(
                 `SELECT ac.id, ac.hal_id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.pdf_url, ac.content
                  FROM academic_chunks_fts fts
                  JOIN academic_chunks ac ON ac.id = fts.rowid
                  WHERE academic_chunks_fts MATCH ?
-                 ORDER BY rank
+                 ORDER BY CASE WHEN ac.hal_id LIKE 'gallia-%' OR ac.hal_id LIKE 'crai-%' OR ac.hal_id LIKE 'inrap-%' OR ac.hal_id LIKE 'bibracte-%' THEN 0 ELSE 1 END, rank
                  LIMIT 6`
               )
-                .bind(ftsAndQuery)
+                .bind(acadPrecisionQuery)
                 .all<AcademicRow>()
                 .catch(() => ({ results: [] }));
               for (const row of acadAndRes.results || []) {
@@ -1665,7 +1676,7 @@ export default {
               }
             }
 
-            retrievedAcademic = acadMatches.slice(0, sourceScope === 'academic' ? 8 : 4);
+            retrievedAcademic = acadMatches.slice(0, sourceScope === 'academic' ? 8 : 5);
           } catch {
             retrievedAcademic = [];
           }
@@ -1757,17 +1768,17 @@ export default {
       // Build grounded documentary context for Gemini (books + AgoraVox + peer-reviewed scientific publications + optional community analytics)
       const bookContextBlocks = retrievedChunks.map(
         (c, idx) =>
-          `Source Livre ${idx + 1} — Ouvrage : ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}\n${String(c.content || '').slice(0, 1000)}`
+          `Source Livre ${idx + 1} (OUVRAGE IMPRIMÉ D’ÉMILE MOUREY — PAS D’URL WEB) — Ouvrage : ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}\n${String(c.content || '').slice(0, 1000)}`
       );
 
       const agoravoxContextBlocks = retrievedAgoravox.map(
         (a, idx) =>
-          `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article d’Émile Mourey'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`
+          `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article AgoraVox d’Émile Mourey'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL AGORAVOX : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`
       );
 
       const academicContextBlocks = retrievedAcademic.map(
         (ac, idx) =>
-          `Source Scientifique / Archéologique Officielle ${idx + 1} — [${ac.doc_type}] ${ac.title} | Auteurs : ${ac.authors}${ac.published_year ? ` (${ac.published_year})` : ''}${ac.journal_or_institution ? ` | Publication/Institution : ${ac.journal_or_institution}` : ''} | URL : ${ac.source_url}\n${String(ac.content || '').slice(0, 900)}`
+          `Source Scientifique / Archéologique Officielle ${idx + 1} — [${ac.doc_type}] ${ac.title} | Auteurs : ${ac.authors}${ac.published_year ? ` (${ac.published_year})` : ''}${ac.journal_or_institution ? ` | Publication/Institution : ${ac.journal_or_institution}` : ''} | URL SCIENTIFIQUE : ${ac.source_url}\n${String(ac.content || '').slice(0, 900)}`
       );
 
       const contextBlocks =
@@ -1788,14 +1799,14 @@ export default {
 
       const systemInstruction = [
         "Tu es l'assistant documentaire officiel des Éditions Émile Mourey.",
-        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses ouvrages et à ses articles/débats publiés sur AgoraVox, tout en les mettant en perspective avec les publications scientifiques et rapports de fouilles archéologiques officiels (CNRS, HAL-SHS, INRAP, revue Gallia, thèses universitaires) fournis dans les sources.",
-        'Règles impératives :',
-        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres, extraits AgoraVox et publications scientifiques fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
-        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; pour chaque article/commentaire AgoraVox ou publication scientifique officielle cités, insère un lien Markdown cliquable au format [Titre ou Auteur (Année)](URL_EXACTE) en utilisant STRICTEMENT l'URL fournie dans la source.",
-        "3. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [LIVRE 1] ou [Source Scientifique 1] dans ta réponse.",
-        "4. Distingue clairement trois niveaux : (a) la thèse d'Émile Mourey dans ses ouvrages et articles AgoraVox, (b) les échanges avec les lecteurs sur AgoraVox, et (c) l'état de la recherche archéologique et universitaire officielle (fouilles, thèses, articles CNRS/HAL/Gallia).",
-        "5. Lorsque des Sources Scientifiques / Archéologiques Officielles sont présentes, cite explicitement les chercheurs, rapports de fouilles ou thèses correspondants avec leur lien cliquable pour éclairer loyalement le point de débat.",
-        '6. Réponds en français soigné, structuré avec des titres clairs, des citations et des puces lisibles.'
+        "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) à partir de ses ouvrages et de ses articles/débats sur AgoraVox, puis de présenter dans une section dédiée la confrontation avec les publications scientifiques et rapports de fouilles archéologiques officiels (CNRS, HAL-SHS, INRAP, revue Gallia, Persée, thèses universitaires) présents dans les sources.",
+        'Règles impératives de citation (AUCUN MÉLANGE DE SOURCES) :',
+        "1. OUVRAGES D'ÉMILE MOUREY (Source Livre) : Cite-les UNIQUEMENT en italique avec le numéro de page, SANS AUCUN LIEN URL Markdown. Exemple exact : (*La Gaule en héritage, 1ère partie*, p. 61) ou (*Histoire de Bibracte, Tome 2 : Le Bouclier Éduen*, p. 106). INTERDICTION ABSOLUE d'attacher une URL AgoraVox ou HAL au titre d'un livre imprimé !",
+        "2. ARTICLES & COMMENTAIRES AGORAVOX (Source AgoraVox) : Cite-les avec un lien Markdown cliquable dont le libellé est le titre de l'article AgoraVox ou l'auteur/date du commentaire, et dont l'URL est l'URL AGORAVOX exacte de cette source. Exemple : [Commentaire d'Émile Mourey sur « Bibracte au mont Beuvray... » (12 déc. 2020)](URL_AGORAVOX_EXACTE).",
+        "3. PUBLICATIONS SCIENTIFIQUES & FOUILLES OFFICIELLES (Source Scientifique / Archéologique Officielle) : Consacre systématiquement une section « Confrontation avec les fouilles archéologiques et publications scientifiques officielles » (lorsque des Sources Scientifiques sont fournies) et cite explicitement chaque publication pertinente (auteurs, année, titre, revue/institution) avec son lien Markdown cliquable [Auteurs (Année) — Titre](URL_SCIENTIFIQUE_EXACTE) pointant vers hal.science, shs.hal.science ou persee.fr.",
+        "4. N'utilise jamais d'astérisques * à l'intérieur des crochets [...] d'un lien Markdown (écris [Texte du lien](URL) et jamais [*Texte*](URL)).",
+        "5. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [LIVRE 1] ou [Source Scientifique 1].",
+        '6. Réponds en français soigné, structuré avec des titres clairs, des citations littérales et des puces lisibles.'
       ].join('\n');
 
       const conversationTurns = history

@@ -109,15 +109,20 @@ const renderInlineFormatting = (
   text: string,
   agoravoxReferences?: AgoraVoxReference[]
 ): React.ReactNode[] => {
+  // Normalize malformed italic-link combinations like *[label](url)* or [*label*](url)
+  const normalizedText = text
+    .replace(/\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*/g, '[$1]($2)')
+    .replace(/\[\*+([^\]]+?)\*+\]\((https?:\/\/[^)\s]+)\)/g, '[$1]($2)');
+
   const nodes: React.ReactNode[] = [];
   const regex = /(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[AGORAVOX\s+(\d+)(?:[^\]]*)\]|\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let keyIdx = 0;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(normalizedText)) !== null) {
     if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
+      nodes.push(normalizedText.slice(lastIndex, match.index));
     }
     const token = match[0];
 
@@ -127,21 +132,39 @@ const renderInlineFormatting = (
       const [, rawLabel, rawHref] = mdLinkMatch;
       const href = rawHref.replace(/^http:\/\/(www\.)?agoravox\.fr/i, 'https://www.agoravox.fr');
       const isItalic = rawLabel.startsWith('*') && rawLabel.endsWith('*') && !rawLabel.startsWith('**');
-      const cleanLabel = rawLabel.replace(/^\*{1,2}|\*{1,2}$/g, '').trim();
-      nodes.push(
-        <a
-          key={`a-${keyIdx++}`}
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className={`inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium ${
-            isItalic ? 'italic' : ''
-          }`}
-        >
-          <span>{cleanLabel}</span>
-          <ExternalLink className="w-3 h-3 inline shrink-0" />
-        </a>
-      );
+      const cleanLabel = rawLabel.replace(/\*/g, '').trim();
+      const isBookMislinkedToWeb =
+        /(agoravox\.fr|hal\.science|persee\.fr)/i.test(href) &&
+        /\b(p\.\s*\d+|page\s+\d+|Tome\s+\d+|1ère\s+partie|2ème\s+partie|La Gaule en héritage|Histoire de Bibracte|Alésia|Gergovie|Uxellodunum|Bourgogne romane|Histoire du Christ|Histoire de Mahomet)\b/i.test(
+          cleanLabel
+        ) &&
+        !/\b(agoravox|commentaire|article|forum|gallia|hal|cnrs|reddé|guichard|goudineau|deberge)\b/i.test(
+          cleanLabel
+        );
+
+      if (isBookMislinkedToWeb) {
+        // Render printed book citation cleanly in italic without the mismatched web URL
+        nodes.push(
+          <em key={`bk-${keyIdx++}`} className="italic font-medium text-[#2B1810]">
+            {cleanLabel}
+          </em>
+        );
+      } else {
+        nodes.push(
+          <a
+            key={`a-${keyIdx++}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className={`inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium ${
+              isItalic ? 'italic' : ''
+            }`}
+          >
+            <span>{cleanLabel}</span>
+            <ExternalLink className="w-3 h-3 inline shrink-0" />
+          </a>
+        );
+      }
     } else if (match[2]) {
       // Safety net: convert leftover [AGORAVOX N ...] into a real clickable link
       const refIdx = Number(match[2]) - 1;
@@ -182,8 +205,8 @@ const renderInlineFormatting = (
     lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+  if (lastIndex < normalizedText.length) {
+    nodes.push(normalizedText.slice(lastIndex));
   }
   return nodes;
 };
