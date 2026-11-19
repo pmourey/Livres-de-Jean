@@ -1575,39 +1575,118 @@ export default {
         }
       }
 
+      // 1C. Community / Commenters SQL analytics when user asks about followers/commenters on AgoraVox
+      let communitySummaryBlock = '';
+      const qNorm = question
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const isCommunityQuestion =
+        sourceScope !== 'books' &&
+        !bookIdFilter &&
+        /(suiveur|commentateur|fidele|lecteur|intervenant|contributeur|pseudonyme|participant|contradicteur|partisan|communaute|qui commente|qui suit)/i.test(
+          qNorm
+        );
+
+      if (env.DB && isCommunityQuestion) {
+        try {
+          type TopCommenter = { author_name: string; nb_comments: number; nb_articles: number };
+          const topRes = await env.DB.prepare(
+            `SELECT author_name, COUNT(*) as nb_comments, COUNT(DISTINCT article_url) as nb_articles
+             FROM agoravox_chunks
+             WHERE source_type = 'comment'
+               AND lower(author_name) NOT LIKE '%mourey%'
+               AND author_name != 'Lecteur AgoraVox'
+             GROUP BY author_name
+             ORDER BY nb_comments DESC
+             LIMIT 10`
+          ).all<TopCommenter>();
+
+          const topCommenters = topRes.results || [];
+          if (topCommenters.length > 0) {
+            const leaderboardLines = topCommenters.map(
+              (c, i) =>
+                `${i + 1}. ${c.author_name} : ${c.nb_comments} commentaires sur ${c.nb_articles} articles`
+            );
+
+            // Fetch 1 representative comment with exact URL for each of the top 6 commenters
+            const topNames = topCommenters.slice(0, 6).map((c) => c.author_name);
+            const placeholders = topNames.map(() => '?').join(',');
+            const sampleRes = await env.DB.prepare(
+              `SELECT source_type, article_title, article_url, source_url, author_name, published_date, content
+               FROM agoravox_chunks
+               WHERE source_type = 'comment'
+                 AND author_name IN (${placeholders})
+                 AND length(content) BETWEEN 140 AND 900
+               GROUP BY author_name
+               ORDER BY id DESC`
+            )
+              .bind(...topNames)
+              .all<AgoraVoxRow>()
+              .catch(() => ({ results: [] }));
+
+            const sampleComments = sampleRes.results || [];
+            // Add these real comments to retrievedAgoravox so their clickable URLs also appear in agoravoxReferences
+            for (const sc of sampleComments) {
+              if (!retrievedAgoravox.some((r) => r.source_url === sc.source_url)) {
+                retrievedAgoravox.push(sc);
+              }
+            }
+
+            communitySummaryBlock = [
+              'STATISTIQUES RÉELLES DES COMMENTATEURS LES PLUS ACTIFS SUR AGORAVOX (base complète de 559 articles et 22 784 commentaires) :',
+              ...leaderboardLines,
+              '',
+              'EXEMPLES DE COMMENTAIRES DE CES INTERVENANTS (avec URL directe) :',
+              ...sampleComments.map(
+                (sc) =>
+                  `- ${sc.author_name} sur « ${sc.article_title} » (${sc.published_date || 'AgoraVox'}) | URL : ${sc.source_url}\n  Extrait : ${String(sc.content || '').slice(0, 420)}`
+              )
+            ].join('\n');
+          }
+        } catch {
+          communitySummaryBlock = '';
+        }
+      }
+
       const mode =
-        retrievedChunks.length > 0 || retrievedAgoravox.length > 0
+        retrievedChunks.length > 0 || retrievedAgoravox.length > 0 || communitySummaryBlock
           ? 'd1_literal'
           : 'catalog_synthesis';
 
-      // Build grounded documentary context for Gemini (books + AgoraVox)
+      // Build grounded documentary context for Gemini (books + AgoraVox + optional community analytics)
       const bookContextBlocks = retrievedChunks.map(
         (c, idx) =>
-          `[LIVRE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1000)}`
+          `Source Livre ${idx + 1} — Ouvrage : ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}\n${String(c.content || '').slice(0, 1000)}`
       );
 
       const agoravoxContextBlocks = retrievedAgoravox.map(
         (a, idx) =>
-          `[AGORAVOX ${idx + 1} | Type: ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article d’Émile Mourey'} | Titre: ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL: ${a.source_url}]\n${String(a.content || '').slice(0, 950)}`
+          `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article d’Émile Mourey'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`
       );
 
       const contextBlocks =
-        bookContextBlocks.length > 0 || agoravoxContextBlocks.length > 0
-          ? [...bookContextBlocks, ...agoravoxContextBlocks]
+        bookContextBlocks.length > 0 || agoravoxContextBlocks.length > 0 || communitySummaryBlock
+          ? [
+              ...(communitySummaryBlock ? [communitySummaryBlock] : []),
+              ...bookContextBlocks,
+              ...agoravoxContextBlocks
+            ]
           : fallbackContext.slice(0, 4).map(
               (fc: any, idx: number) =>
-                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${String(fc.excerpt || '').slice(0, 950)}`
+                `Notice ${idx + 1} — Ouvrage : ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}\n${String(fc.excerpt || '').slice(0, 950)}`
             );
 
       const systemInstruction = [
         "Tu es l'assistant documentaire officiel des Éditions Émile Mourey.",
         "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) sur les sujets liés à ses ouvrages et à ses articles/débats publiés sur AgoraVox.",
         'Règles impératives :',
-        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres et les extraits AgoraVox fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
-        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; titre de l'article (et nom du commentateur le cas échéant) avec mention d'AgoraVox pour les extraits AgoraVox.",
-        "3. Distingue clairement ce qui provient des ouvrages d'Émile Mourey, de ses articles AgoraVox et, le cas échéant, des réactions ou objections des commentateurs AgoraVox.",
-        "4. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
-        '5. Réponds en français soigné, structuré avec des titres clairs, des citations et des puces lisibles.'
+        '1. Appuie-toi STRICTEMENT sur les passages littéraux de livres, statistiques et extraits AgoraVox fournis ci-dessous. N’invente jamais une citation, un numéro de page ni une URL absents des sources.',
+        "2. Cite systématiquement les références exactes : titre, tome et numéro de page pour les livres ; pour chaque article ou commentaire AgoraVox cité, insère un lien Markdown cliquable au format [Titre ou Commentaire](URL_EXACTE) en utilisant STRICTEMENT l'URL fournie dans la source.",
+        "3. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [AGORAVOX 2] ou [LIVRE 1] dans ta réponse.",
+        "4. Distingue clairement ce qui provient des ouvrages d'Émile Mourey, de ses articles AgoraVox et des réactions ou apports des commentateurs AgoraVox.",
+        "5. Présente la théorie d'Émile Mourey de manière structurée et pédagogique, puis indique brièvement et loyalement, lorsqu'il y a lieu, l'écart avec le consensus archéologique ou universitaire.",
+        '6. Réponds en français soigné, structuré avec des titres clairs, des citations et des puces lisibles.'
       ].join('\n');
 
       const conversationTurns = history

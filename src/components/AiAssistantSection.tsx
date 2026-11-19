@@ -64,12 +64,15 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 /**
- * Rendu éditorial propre du Markdown renvoyé par Gemini (titres, citations, listes, gras, italique)
- * sans aucune dépendance externe et sans HTML brut.
+ * Rendu éditorial propre du Markdown renvoyé par Gemini (titres, citations, listes,
+ * liens cliquables [label](url), gras, italique et séparateurs) sans dépendance externe.
  */
-const renderInlineFormatting = (text: string): React.ReactNode[] => {
+const renderInlineFormatting = (
+  text: string,
+  agoravoxReferences?: AgoraVoxReference[]
+): React.ReactNode[] => {
   const nodes: React.ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
+  const regex = /(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[AGORAVOX\s+(\d+)(?:[^\]]*)\]|\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let keyIdx = 0;
@@ -79,7 +82,48 @@ const renderInlineFormatting = (text: string): React.ReactNode[] => {
       nodes.push(text.slice(lastIndex, match.index));
     }
     const token = match[0];
-    if (token.startsWith('**') && token.endsWith('**')) {
+
+    // Markdown link: [label](https://...)
+    const mdLinkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (mdLinkMatch) {
+      const [, label, href] = mdLinkMatch;
+      nodes.push(
+        <a
+          key={`a-${keyIdx++}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium"
+        >
+          <span>{label}</span>
+          <ExternalLink className="w-3 h-3 inline shrink-0" />
+        </a>
+      );
+    } else if (match[2]) {
+      // Safety net: convert leftover [AGORAVOX N ...] into a real clickable link
+      const refIdx = Number(match[2]) - 1;
+      const ref = agoravoxReferences?.[refIdx];
+      if (ref?.url) {
+        nodes.push(
+          <a
+            key={`av-${keyIdx++}`}
+            href={ref.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium"
+          >
+            <span>
+              {ref.sourceType === 'comment'
+                ? `Commentaire (${ref.authorName}) — ${ref.title}`
+                : ref.title}
+            </span>
+            <ExternalLink className="w-3 h-3 inline shrink-0" />
+          </a>
+        );
+      } else {
+        nodes.push(token);
+      }
+    } else if (token.startsWith('**') && token.endsWith('**')) {
       nodes.push(
         <strong key={`b-${keyIdx++}`} className="font-semibold text-[#2B1810]">
           {token.slice(2, -2)}
@@ -101,7 +145,10 @@ const renderInlineFormatting = (text: string): React.ReactNode[] => {
   return nodes;
 };
 
-const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
+const FormattedAiText: React.FC<{
+  text: string;
+  agoravoxReferences?: AgoraVoxReference[];
+}> = ({ text, agoravoxReferences }) => {
   const lines = text.replace(/\r/g, '').split('\n');
   const elements: React.ReactNode[] = [];
   let listItems: string[] = [];
@@ -115,7 +162,7 @@ const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
         {listItems.map((item, idx) => (
           <li key={idx} className="flex items-start gap-2.5 text-stone-800 leading-relaxed">
             <span className="text-[#8B1E2D] font-bold mt-0.5 shrink-0">•</span>
-            <span>{renderInlineFormatting(item)}</span>
+            <span>{renderInlineFormatting(item, agoravoxReferences)}</span>
           </li>
         ))}
       </ul>
@@ -130,7 +177,7 @@ const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
         key={`bq-${blockKey++}`}
         className="my-2.5 pl-4 pr-3 py-2.5 bg-[#FAF8F5] border-l-3 border-[#8B1E2D] rounded-r-md font-serif-display italic text-stone-800 text-sm leading-relaxed"
       >
-        {renderInlineFormatting(quoteLines.join(' '))}
+        {renderInlineFormatting(quoteLines.join(' '), agoravoxReferences)}
       </blockquote>
     );
     quoteLines = [];
@@ -142,6 +189,13 @@ const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
     if (!line) {
       flushList();
       flushQuote();
+      continue;
+    }
+
+    if (/^[-*_]{3,}$/.test(line)) {
+      flushList();
+      flushQuote();
+      elements.push(<hr key={`hr-${blockKey++}`} className="border-stone-200 my-3" />);
       continue;
     }
 
@@ -165,7 +219,7 @@ const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
             level <= 2 ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
           }`}
         >
-          {renderInlineFormatting(headingText)}
+          {renderInlineFormatting(headingText, agoravoxReferences)}
         </h4>
       );
       continue;
@@ -180,7 +234,7 @@ const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
     flushList();
     elements.push(
       <p key={`p-${blockKey++}`} className="text-stone-800 leading-relaxed">
-        {renderInlineFormatting(line)}
+        {renderInlineFormatting(line, agoravoxReferences)}
       </p>
     );
   }
@@ -689,7 +743,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                         </div>
 
                         {msg.role === 'model' ? (
-                          <FormattedAiText text={msg.text} />
+                          <FormattedAiText
+                            text={msg.text}
+                            agoravoxReferences={msg.agoravoxReferences}
+                          />
                         ) : (
                           <div className="whitespace-pre-line">{msg.text}</div>
                         )}
