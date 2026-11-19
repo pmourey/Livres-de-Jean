@@ -1388,8 +1388,8 @@ export default {
       const body = await readJson(request);
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
-      const history = Array.isArray(body?.history) ? body.history.slice(-6) : [];
-      const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 14) : [];
+      const history = Array.isArray(body?.history) ? body.history.slice(-4) : [];
+      const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
       if (!question || question.length > 1000) {
         return json({ error: 'Question invalide (entre 1 et 1 000 caractères).' }, { status: 400 });
@@ -1467,16 +1467,16 @@ export default {
 
       const mode = retrievedChunks.length > 0 ? 'd1_literal' : 'catalog_synthesis';
 
-      // Build grounded documentary context for Gemini
+      // Build grounded documentary context for Gemini (compact to keep response < 3s)
       const contextBlocks =
         retrievedChunks.length > 0
-          ? retrievedChunks.map(
+          ? retrievedChunks.slice(0, 6).map(
               (c, idx) =>
-                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${c.content}`
+                `[PASSAGE ${idx + 1} | book_id=${c.book_id} | Ouvrage: ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}]\n${String(c.content || '').slice(0, 1200)}`
             )
           : fallbackContext.map(
               (fc: any, idx: number) =>
-                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${fc.excerpt || ''}`
+                `[NOTICE ${idx + 1} | book_id=${fc.bookId || ''} | Ouvrage: ${fc.title || ''}${fc.tome ? ` (${fc.tome})` : ''}]\n${String(fc.excerpt || '').slice(0, 1400)}`
             );
 
       const systemInstruction = [
@@ -1508,29 +1508,42 @@ export default {
       ].join('\n');
 
       const model = (env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+      const isGemini3OrNewer = /^gemini-[34]/i.test(model);
+      const generationConfig: Record<string, unknown> = {
+        temperature: 0.25,
+        maxOutputTokens: 1000
+      };
+      if (isGemini3OrNewer) {
+        // Use minimal thinking on Gemini 3/4 Flash to guarantee fast (<3s) responses and prevent Cloudflare 524 timeouts
+        generationConfig.thinkingConfig = { thinkingLevel: 'minimal' };
+      }
+
       try {
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': env.GEMINI_API_KEY
+            },
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: systemInstruction }] },
               contents: [
                 ...conversationTurns,
                 { role: 'user', parts: [{ text: userPromptWithSources }] }
               ],
-              generationConfig: {
-                temperature: 0.25,
-                maxOutputTokens: 1400
-              }
+              generationConfig
             })
           }
         );
 
         const geminiData = await geminiRes.json().catch(() => null);
         if (!geminiRes.ok) {
-          const errMsg = geminiData?.error?.message || `Erreur API Gemini (${geminiRes.status})`;
+          const errMsg =
+            geminiRes.status === 524 || geminiRes.status === 504
+              ? "Le service Gemini a mis trop de temps à répondre (timeout 524). Veuillez réessayer votre question."
+              : geminiData?.error?.message || `Erreur API Gemini (${geminiRes.status})`;
           return json({ error: errMsg }, { status: 502 });
         }
 
