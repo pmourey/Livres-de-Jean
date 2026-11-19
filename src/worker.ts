@@ -1517,7 +1517,7 @@ export default {
         const isGemini3OrNewer = /^gemini-[34]/i.test(targetModel);
         const generationConfig: Record<string, unknown> = {
           temperature: 0.25,
-          maxOutputTokens: 900
+          maxOutputTokens: 1600
         };
         if (isGemini3OrNewer && !isLiteModel) {
           generationConfig.thinkingConfig = { thinkingLevel: 'low' };

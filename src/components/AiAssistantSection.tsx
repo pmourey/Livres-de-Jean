@@ -51,6 +51,134 @@ const SUGGESTED_QUESTIONS = [
   "Comment Émile Mourey interprète-t-il les figures prophétiques et les « épouses » dans Histoire de Mahomet ?"
 ];
 
+/**
+ * Rendu éditorial propre du Markdown renvoyé par Gemini (titres, citations, listes, gras, italique)
+ * sans aucune dépendance externe et sans HTML brut.
+ */
+const renderInlineFormatting = (text: string): React.ReactNode[] => {
+  const nodes: React.ReactNode[] = [];
+  const regex = /(\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let keyIdx = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      nodes.push(
+        <strong key={`b-${keyIdx++}`} className="font-semibold text-[#2B1810]">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith('*') && token.endsWith('*')) {
+      nodes.push(
+        <em key={`i-${keyIdx++}`} className="italic text-stone-800">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
+};
+
+const FormattedAiText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let quoteLines: string[] = [];
+  let blockKey = 0;
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ul key={`ul-${blockKey++}`} className="space-y-2 pl-1 my-2">
+        {listItems.map((item, idx) => (
+          <li key={idx} className="flex items-start gap-2.5 text-stone-800 leading-relaxed">
+            <span className="text-[#8B1E2D] font-bold mt-0.5 shrink-0">•</span>
+            <span>{renderInlineFormatting(item)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    listItems = [];
+  };
+
+  const flushQuote = () => {
+    if (quoteLines.length === 0) return;
+    elements.push(
+      <blockquote
+        key={`bq-${blockKey++}`}
+        className="my-2.5 pl-4 pr-3 py-2.5 bg-[#FAF8F5] border-l-3 border-[#8B1E2D] rounded-r-md font-serif-display italic text-stone-800 text-sm leading-relaxed"
+      >
+        {renderInlineFormatting(quoteLines.join(' '))}
+      </blockquote>
+    );
+    quoteLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushList();
+      flushQuote();
+      continue;
+    }
+
+    if (line.startsWith('>')) {
+      flushList();
+      quoteLines.push(line.replace(/^>\s?/, ''));
+      continue;
+    }
+
+    flushQuote();
+
+    const headingMatch = line.match(/^(#{1,4})\s+(.+)$/);
+    if (headingMatch) {
+      flushList();
+      const level = headingMatch[1].length;
+      const headingText = headingMatch[2];
+      elements.push(
+        <h4
+          key={`h-${blockKey++}`}
+          className={`font-serif-display font-bold text-[#2B1810] pt-2 pb-1 border-b border-stone-100 ${
+            level <= 2 ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
+          }`}
+        >
+          {renderInlineFormatting(headingText)}
+        </h4>
+      );
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*•]\s+(.+)$/);
+    if (bulletMatch) {
+      listItems.push(bulletMatch[1]);
+      continue;
+    }
+
+    flushList();
+    elements.push(
+      <p key={`p-${blockKey++}`} className="text-stone-800 leading-relaxed">
+        {renderInlineFormatting(line)}
+      </p>
+    );
+  }
+
+  flushList();
+  flushQuote();
+
+  return <div className="space-y-2.5">{elements}</div>;
+};
+
 export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   books,
   customerToken,
@@ -532,7 +660,11 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                           <span>{msg.timestamp}</span>
                         </div>
 
-                        <div className="whitespace-pre-line">{msg.text}</div>
+                        {msg.role === 'model' ? (
+                          <FormattedAiText text={msg.text} />
+                        ) : (
+                          <div className="whitespace-pre-line">{msg.text}</div>
+                        )}
 
                         {msg.role === 'model' && msg.references && msg.references.length > 0 && (
                           <div className="pt-3 border-t border-stone-100 space-y-2">
