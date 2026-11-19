@@ -136,8 +136,10 @@ def parse_agoravox_html(filepath: str):
         m_url = re.search(r'<meta[^>]+content=["\'](https?://(?:www\.)?agoravox\.fr/[^"\']+)["\'][^>]+property=["\']og:url["\']', doc, re.I)
     article_url = m_url.group(1).strip() if m_url else "https://www.agoravox.fr/auteur/emile-mourey"
 
-    # Titre de l'article
-    m_title = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', doc, re.I)
+    # Titre de l'article (gère correctement les apostrophes dans content="L'islam...")
+    m_title = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content="([^"]+)"', doc, re.I)
+    if not m_title:
+        m_title = re.search(r"<meta[^>]+property=[\"']og:title[\"'][^>]+content='([^']+)'", doc, re.I)
     if not m_title:
         m_title = re.search(r"<title>(.*?)</title>", doc, re.S | re.I)
     raw_title = html.unescape(m_title.group(1)) if m_title else os.path.splitext(os.path.basename(filepath))[0]

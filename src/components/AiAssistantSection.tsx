@@ -86,16 +86,21 @@ const renderInlineFormatting = (
     // Markdown link: [label](https://...)
     const mdLinkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (mdLinkMatch) {
-      const [, label, href] = mdLinkMatch;
+      const [, rawLabel, rawHref] = mdLinkMatch;
+      const href = rawHref.replace(/^http:\/\/(www\.)?agoravox\.fr/i, 'https://www.agoravox.fr');
+      const isItalic = rawLabel.startsWith('*') && rawLabel.endsWith('*') && !rawLabel.startsWith('**');
+      const cleanLabel = rawLabel.replace(/^\*{1,2}|\*{1,2}$/g, '').trim();
       nodes.push(
         <a
           key={`a-${keyIdx++}`}
           href={href}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium"
+          className={`inline-flex items-center gap-0.5 text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2 font-medium ${
+            isItalic ? 'italic' : ''
+          }`}
         >
-          <span>{label}</span>
+          <span>{cleanLabel}</span>
           <ExternalLink className="w-3 h-3 inline shrink-0" />
         </a>
       );
