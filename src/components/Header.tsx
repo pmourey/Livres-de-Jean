@@ -58,17 +58,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-18 py-2.5 flex items-center justify-between gap-4">
         {/* Zone 1: Brand title wordmark */}
         <button
           onClick={() => onNavigate('catalog')}
-          className="font-serif-display text-2xl font-bold tracking-tight text-[#2B1810] hover:text-[#8B1E2D] transition-colors text-left"
+          className="font-serif-display text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-[#2B1810] hover:text-[#8B1E2D] transition-colors text-left whitespace-nowrap shrink-0 leading-none cursor-pointer"
         >
           Éditions Émile Mourey
         </button>
 
         {/* Zone 2: Clean text navigation links */}
-        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs lg:text-sm font-medium text-stone-700">
+        <nav className="hidden xl:flex items-center gap-4 2xl:gap-5 text-xs font-medium text-stone-700 min-w-0">
           <button
             onClick={() => onNavigate('catalog')}
             className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
@@ -145,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => onNavigate('account')}
-            className="md:hidden p-2 text-stone-700 hover:text-[#8B1E2D] rounded-md transition-colors"
+            className="xl:hidden p-2 text-stone-700 hover:text-[#8B1E2D] rounded-md transition-colors"
             title="Espace Client"
           >
             <User className="w-5 h-5" />
@@ -166,10 +166,10 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile Navigation Strip */}
+      {/* Compact / Tablet & Mobile Navigation Strip (visible below xl so the brand never wraps or overflows) */}
       <nav
-        aria-label="Navigation mobile"
-        className="md:hidden border-t border-[#E7E2D9] bg-[#FAF8F5] px-4 py-2 flex items-center gap-4 overflow-x-auto text-xs font-medium text-stone-700"
+        aria-label="Navigation principale compacte"
+        className="xl:hidden border-t border-[#E7E2D9] bg-[#FAF8F5] px-4 py-2 flex items-center gap-4 sm:gap-5 overflow-x-auto text-xs font-medium text-stone-700"
       >
         <button
           onClick={() => onNavigate('catalog')}
