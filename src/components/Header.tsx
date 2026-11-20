@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, User, ShieldCheck, Lock, AlertTriangle, Wrench, Sparkles } from 'lucide-react';
+import { ShoppingBag, User, Lock, AlertTriangle, Sparkles, Sun, Moon } from 'lucide-react';
 
 interface HeaderProps {
   cartCount: number;
@@ -8,6 +8,8 @@ interface HeaderProps {
   currentView: string;
   isMaintenanceMode?: boolean;
   maintenanceMessage?: string;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,10 +18,19 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   currentView,
   isMaintenanceMode = true,
-  maintenanceMessage
+  maintenanceMessage,
+  theme = 'light',
+  onToggleTheme
 }) => {
+  const isDark = theme === 'dark';
+
+  const navLinkClass = (view: string) =>
+    `inline-flex items-center gap-1.5 transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap shrink-0 cursor-pointer ${
+      currentView === view ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
+    }`;
+
   return (
-    <header className="sticky top-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-b border-[#E7E2D9]">
+    <header className="sticky top-0 z-40 bg-[#FAF8F5]/95 dark:bg-[#17120E]/95 backdrop-blur-md border-b border-[#E7E2D9] dark:border-[#3A2E24] transition-colors">
       {/* Non-dismissible prominent maintenance banner */}
       {isMaintenanceMode && (
         <div
@@ -58,8 +69,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-18 py-2.5 flex items-center justify-between gap-4">
-        {/* Zone 1: Brand title wordmark */}
+      {/* Tier 1: Brand Identity & Utility Actions (guaranteed zero overlap) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
         <button
           onClick={() => onNavigate('catalog')}
           className="font-serif-display text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-[#2B1810] hover:text-[#8B1E2D] transition-colors text-left whitespace-nowrap shrink-0 leading-none cursor-pointer"
@@ -67,98 +78,52 @@ export const Header: React.FC<HeaderProps> = ({
           Éditions Émile Mourey
         </button>
 
-        {/* Zone 2: Clean text navigation links */}
-        <nav className="hidden xl:flex items-center gap-4 2xl:gap-5 text-xs font-medium text-stone-700 min-w-0">
-          <button
-            onClick={() => onNavigate('catalog')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'catalog' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            Catalogue
-          </button>
-          <button
-            onClick={() => onNavigate('method')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'method' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            Méthode & Controverse
-          </button>
-          <button
-            onClick={() => onNavigate('ai')}
-            className={`inline-flex items-center gap-1 transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'ai' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
-            <span>Assistant IA</span>
-          </button>
-          <button
-            onClick={() => onNavigate('author')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'author' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            L’Auteur & Travaux
-          </button>
-          <button
-            onClick={() => onNavigate('shipping')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'shipping' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            Livraison & Paiement
-          </button>
-          <button
-            onClick={() => onNavigate('legal')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'legal' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            Charte & Mentions
-          </button>
-          <button
-            onClick={() => onNavigate('account')}
-            className={`transition-colors hover:text-[#8B1E2D] pb-1 border-b-2 whitespace-nowrap ${
-              currentView === 'account' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-            }`}
-          >
-            Espace Client
-          </button>
-        </nav>
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {onToggleTheme && (
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={isDark ? 'Passer en mode clair parchemin' : 'Passer en mode sombre sépia'}
+              aria-pressed={isDark}
+              title={isDark ? 'Mode clair (Parchemin)' : 'Mode sombre sépia (Lecture nocturne)'}
+              className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                isDark
+                  ? 'bg-[#2A211A] text-[#E6C687] border-[#4A3C30] hover:bg-[#352A21] hover:text-[#F5DFA9]'
+                  : 'bg-[#F5F1E9]/80 text-[#574435] border-[#DFD7CA] hover:bg-[#EDE6DA] hover:text-[#2B1810]'
+              }`}
+            >
+              {isDark ? (
+                <Sun className="w-3.5 h-3.5 text-[#D4AF37]" />
+              ) : (
+                <Moon className="w-3.5 h-3.5 text-[#6B4E37]" />
+              )}
+              <span className="hidden md:inline whitespace-nowrap">
+                {isDark ? 'Parchemin' : 'Nuit sépia'}
+              </span>
+            </button>
+          )}
 
-        {/* Zone 3: 1-2 primary actions */}
-        <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('admin')}
             title="Espace Auteur & Gestion Commerciale (Accès Protégé)"
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-colors border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-medium rounded-md transition-colors border whitespace-nowrap shrink-0 cursor-pointer ${
               currentView === 'admin'
                 ? 'bg-stone-900 text-amber-400 border-stone-800'
-                : 'text-stone-600 hover:text-stone-900 border-stone-200/80 hover:bg-stone-100/60'
+                : 'text-stone-600 dark:text-[#D8CBB6] hover:text-stone-900 dark:hover:text-[#F3E8D6] border-stone-200/80 dark:border-[#4A3C30] hover:bg-stone-100/60 dark:hover:bg-[#2A211A]'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
-            <span className="whitespace-nowrap">Gestion Auteur</span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('account')}
-            className="xl:hidden p-2 text-stone-700 hover:text-[#8B1E2D] rounded-md transition-colors"
-            title="Espace Client"
-          >
-            <User className="w-5 h-5" />
+            <span className="hidden sm:inline whitespace-nowrap">Gestion Auteur</span>
           </button>
 
           <button
             onClick={onOpenCart}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-[#8B1E2D] hover:bg-[#721824] rounded-md transition-colors shadow-sm whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs font-semibold text-white bg-[#8B1E2D] hover:bg-[#721824] rounded-md transition-colors shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Panier</span>
             {cartCount > 0 && (
-              <span className="bg-white text-[#8B1E2D] px-1.5 py-0.2 rounded-full font-bold text-[11px] tabular-nums">
+              <span className="preserve-light bg-white text-[#8B1E2D] px-1.5 py-0.2 rounded-full font-bold text-[11px] tabular-nums">
                 {cartCount}
               </span>
             )}
@@ -166,61 +131,37 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Compact / Tablet & Mobile Navigation Strip (visible below xl so the brand never wraps or overflows) */}
-      <nav
-        aria-label="Navigation principale compacte"
-        className="xl:hidden border-t border-[#E7E2D9] bg-[#FAF8F5] px-4 py-2 flex items-center gap-4 sm:gap-5 overflow-x-auto text-xs font-medium text-stone-700"
-      >
-        <button
-          onClick={() => onNavigate('catalog')}
-          className={`whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'catalog' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
+      {/* Tier 2: Dedicated Editorial Navigation Bar */}
+      <div className="border-t border-[#E7E2D9] dark:border-[#3A2E24] bg-[#FAF8F5] dark:bg-[#1C1611] transition-colors">
+        <nav
+          aria-label="Navigation principale"
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-start lg:justify-center gap-5 lg:gap-7 overflow-x-auto text-xs font-medium text-stone-700 dark:text-[#D8CBB6]"
         >
-          Catalogue
-        </button>
-        <button
-          onClick={() => onNavigate('method')}
-          className={`whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'method' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
-        >
-          Méthode & Controverse
-        </button>
-        <button
-          onClick={() => onNavigate('ai')}
-          className={`inline-flex items-center gap-1 whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'ai' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
-        >
-          <Sparkles className="w-3 h-3 text-[#8B1E2D]" />
-          <span>Assistant IA</span>
-        </button>
-        <button
-          onClick={() => onNavigate('author')}
-          className={`whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'author' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
-        >
-          L’Auteur
-        </button>
-        <button
-          onClick={() => onNavigate('shipping')}
-          className={`whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'shipping' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
-        >
-          Livraison
-        </button>
-        <button
-          onClick={() => onNavigate('legal')}
-          className={`whitespace-nowrap pb-0.5 border-b-2 ${
-            currentView === 'legal' ? 'border-[#8B1E2D] text-[#8B1E2D] font-semibold' : 'border-transparent'
-          }`}
-        >
-          Charte & Mentions
-        </button>
-      </nav>
+          <button onClick={() => onNavigate('catalog')} className={navLinkClass('catalog')}>
+            Catalogue
+          </button>
+          <button onClick={() => onNavigate('method')} className={navLinkClass('method')}>
+            Méthode & Controverse
+          </button>
+          <button onClick={() => onNavigate('ai')} className={navLinkClass('ai')}>
+            <Sparkles className="w-3.5 h-3.5 text-[#8B1E2D]" />
+            <span>Assistant IA</span>
+          </button>
+          <button onClick={() => onNavigate('author')} className={navLinkClass('author')}>
+            L’Auteur & Travaux
+          </button>
+          <button onClick={() => onNavigate('shipping')} className={navLinkClass('shipping')}>
+            Livraison & Paiement
+          </button>
+          <button onClick={() => onNavigate('legal')} className={navLinkClass('legal')}>
+            Charte & Mentions
+          </button>
+          <button onClick={() => onNavigate('account')} className={navLinkClass('account')}>
+            <User className="w-3.5 h-3.5" />
+            <span>Espace Client</span>
+          </button>
+        </nav>
+      </div>
     </header>
   );
 };

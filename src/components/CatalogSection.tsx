@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { Book, BookFormat } from '../types';
 import { BookCover } from './BookCover';
 import { 
@@ -208,10 +209,17 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {sortedBooks.map((book) => (
-              <div
+            {sortedBooks.map((book, index) => (
+              <motion.div
                 key={book.id}
-                className="group bg-white rounded-lg border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.3,
+                  delay: Math.min(index * 0.04, 0.28),
+                  ease: [0.22, 1, 0.36, 1]
+                }}
+                className="group bg-white rounded-lg border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between"
               >
                 {/* Book Card Top: Visual & Description */}
                 <div className="p-5 space-y-4">
@@ -255,16 +263,25 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                   </div>
 
                   {/* Short excerpt / description */}
-                  <p className="text-xs text-stone-600 mt-2 line-clamp-3 text-justify leading-relaxed">
+                  <p className="text-xs text-stone-600 dark:text-[#C8B9A3] mt-2 text-justify leading-relaxed">
                     {book.shortDescription}
                   </p>
 
-                  {/* Significant quote if available */}
-                  {book.keyQuotes && book.keyQuotes.length > 0 && (
-                    <div className="mt-2 text-[11px] italic text-stone-700 bg-stone-50/90 p-2.5 rounded border-l-2 border-[#8B1E2D] line-clamp-2 leading-snug">
-                      « {book.keyQuotes[0]} »
-                    </div>
-                  )}
+                  {/* Significant quote if available (scrollable, single French guillemets, high contrast in light & dark sepia) */}
+                  {book.keyQuotes && book.keyQuotes.length > 0 && (() => {
+                    const cleanedQuote = book.keyQuotes[0]
+                      .trim()
+                      .replace(/^«\s*/, '')
+                      .replace(/\s*»$/, '')
+                      .trim();
+                    return (
+                      <blockquote className="mt-2.5 max-h-24 overflow-y-auto excerpt-scroll text-[11.5px] italic text-stone-800 dark:text-[#F0E5D3] bg-[#F5F1E9]/90 dark:bg-[#2A211A] p-2.5 pr-3 rounded border border-stone-200/70 dark:border-[#4A3C30] border-l-3 border-l-[#8B1E2D] dark:border-l-[#D9737F] leading-relaxed">
+                        «{'\u00A0'}
+                        {cleanedQuote}
+                        {'\u00A0'}»
+                      </blockquote>
+                    );
+                  })()}
 
                   {/* ISBN and External Reference links */}
                   <div className="w-full mt-3 pt-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-400">
@@ -399,13 +416,19 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
 
         {/* Spotlight Showcase Section: L'Intégrale de Bibracte */}
-        <section className="my-14 bg-gradient-to-r from-[#2A1812] to-[#3B1E19] text-white rounded-xl p-8 sm:p-12 shadow-lg overflow-hidden">
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="my-14 bg-gradient-to-r from-[#2A1812] to-[#3B1E19] text-white rounded-xl p-8 sm:p-12 shadow-lg overflow-hidden"
+        >
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
             <div className="md:col-span-4 flex justify-center">
               <BookCover book={featuredBook} size="lg" />
@@ -446,10 +469,16 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {/* Readers & Scholars Testimonials */}
-        <section className="bg-white border border-stone-200 rounded-lg p-8 sm:p-10 space-y-6">
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white border border-stone-200 rounded-lg p-8 sm:p-10 space-y-6"
+        >
           <div className="text-center space-y-1">
             <span className="font-cinzel text-xs uppercase tracking-widest text-[#8B1E2D] font-bold">
               Témoignages & Critiques de Lecteurs
@@ -490,7 +519,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
       </div>
     </div>
   );

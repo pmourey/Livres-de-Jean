@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { AUTHOR_INFO } from '../data/initialData';
 import { Feather, BookOpen, MapPin, Send, CheckCircle, ShieldCheck, Award } from 'lucide-react';
 
@@ -23,7 +24,12 @@ export const AuthorSection: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
       {/* Hero Presentation */}
-      <div className="border border-stone-200 rounded-lg p-8 sm:p-10 bg-white shadow-xs">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+        className="border border-stone-200 rounded-lg p-8 sm:p-10 bg-white shadow-xs"
+      >
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           {/* Author insignia and portrait card */}
           <div className="md:col-span-4 flex flex-col items-center text-center">
@@ -82,10 +88,15 @@ export const AuthorSection: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Thematic Pillars */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.34, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+      >
         <div className="bg-[#FAF8F5] p-6 rounded-lg border border-stone-200 space-y-2">
           <span className="font-cinzel text-xs text-[#8B1E2D] font-bold block">01. Histoire de Bibracte</span>
           <h3 className="font-serif-display font-bold text-lg text-stone-900">
@@ -115,10 +126,16 @@ export const AuthorSection: React.FC = () => {
             Un diptyque fouillé confrontant les sources évangéliques au droit pénal romain sous Ponce Pilate (Tome 1) et retraçant la diffusion gallo-romaine le long des fleuves jusqu'en Bourgogne (Tome 2).
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Contact Form for Author */}
-      <div className="bg-white border border-stone-200 rounded-lg p-8 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+        className="bg-white border border-stone-200 rounded-lg p-8 space-y-6"
+      >
         <div className="border-b border-stone-200 pb-4">
           <h3 className="font-serif-display font-bold text-xl text-[#2B1810]">
             Écrire à Monsieur Émile Mourey
@@ -183,7 +200,7 @@ export const AuthorSection: React.FC = () => {
             </div>
           </form>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { 
   Book, CartItem, Order, ClaimTicket, UserAccount, BookFormat 
 } from './types';
@@ -25,6 +26,7 @@ import { AiAssistantSection } from './components/AiAssistantSection';
 import { LegalCharterPage } from './components/LegalCharterPage';
 import { LegalModal } from './components/LegalModals';
 import { Footer } from './components/Footer';
+import { SeoHead } from './components/SeoHead';
 import { PAYMENTS_API_BASE } from './config/commerce';
 
 export default function App() {
@@ -45,11 +47,21 @@ export default function App() {
     extractSharedAiSessionId()
   );
 
+  const extractViewFromQuery = (): 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin' | null => {
+    const vue = new URLSearchParams(window.location.search).get('vue');
+    if (vue === 'auteur') return 'author';
+    if (vue === 'livraison') return 'shipping';
+    if (vue === 'methode') return 'method';
+    if (vue === 'assistant') return 'ai';
+    if (vue === 'charte-legale') return 'legal';
+    return null;
+  };
+
   // Navigation View: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'
   const [currentView, setCurrentView] = useState<'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin'>(() => {
     if (extractSharedAiSessionId()) return 'ai';
     if (isModerationPath()) return 'admin';
-    return 'catalog';
+    return extractViewFromQuery() || 'catalog';
   });
   const [adminInitialTab, setAdminInitialTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(() =>
     isModerationPath() ? 'moderation' : 'orders'
@@ -67,6 +79,11 @@ export default function App() {
       if (isModerationPath()) {
         setAdminInitialTab('moderation');
         setCurrentView('admin');
+        return;
+      }
+      const queryView = extractViewFromQuery();
+      if (queryView) {
+        setCurrentView(queryView);
       }
     };
     window.addEventListener('hashchange', onRouteChange);
@@ -214,14 +231,79 @@ export default function App() {
     return saved ? JSON.parse(saved) : DEMO_CUSTOMER;
   });
 
-  // Modals
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  // Modals (initialize selectedBook from canonical ?livre=<book.id> query parameter if present)
+  const [selectedBook, setSelectedBook] = useState<Book | null>(() => {
+    const bookId = new URLSearchParams(window.location.search).get('livre');
+    if (!bookId) return null;
+    return books.find((b) => b.id === bookId) || null;
+  });
   const [excerptBook, setExcerptBook] = useState<Book | null>(null);
+
+  // Sync canonical URL query parameters (?livre=<id> / ?vue=...) with active book & view
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    // Preserve payment return parameters until the payment effect processes them
+    if (params.has('payment')) return;
+
+    const activeBook = selectedBook || excerptBook;
+    if (activeBook) {
+      params.set('livre', activeBook.id);
+      params.delete('vue');
+    } else {
+      params.delete('livre');
+      const viewSlugMap: Record<string, string> = {
+        author: 'auteur',
+        shipping: 'livraison',
+        method: 'methode',
+        ai: 'assistant',
+        legal: 'charte-legale'
+      };
+      const slug = viewSlugMap[currentView];
+      if (slug && !sharedAiSessionId) {
+        params.set('vue', slug);
+      } else {
+        params.delete('vue');
+      }
+    }
+
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(null, '', nextUrl);
+    }
+  }, [selectedBook, excerptBook, currentView, sharedAiSessionId]);
+
+  // Listen to browser history popstate for ?livre= deep links
+  useEffect(() => {
+    const onPopStateBook = () => {
+      const bookId = new URLSearchParams(window.location.search).get('livre');
+      if (bookId) {
+        const matched = books.find((b) => b.id === bookId) || null;
+        setSelectedBook(matched);
+      } else {
+        setSelectedBook(null);
+      }
+    };
+    window.addEventListener('popstate', onPopStateBook);
+    return () => window.removeEventListener('popstate', onPopStateBook);
+  }, [books]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [legalModalType, setLegalModalType] = useState<'mentions' | 'cgv' | 'shipping_info' | null>(null);
   const [customerToken, setCustomerToken] = useState<string>(() => localStorage.getItem('emile_mourey_customer_token') || '');
+
+  // Reading Theme State ('light' Parchment | 'dark' Dark Sepia)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('emile_mourey_theme');
+    return saved === 'dark' ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('emile_mourey_theme', theme);
+  }, [theme]);
 
   // Author-controlled Maintenance Mode State (defaults to true as requested: under construction & payments paused)
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
@@ -679,21 +761,46 @@ export default function App() {
 
   const cartTotalCount = cart.reduce((acc, i) => acc + i.quantity, 0);
 
+  const handleNavigate = (view: 'catalog' | 'method' | 'ai' | 'author' | 'shipping' | 'legal' | 'account' | 'admin') => {
+    setCurrentView(view);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-[#22211F]">
+      {/* Dynamic SEO Head: canonical links, OpenGraph/Twitter meta tags, and Schema.org Book & Product JSON-LD */}
+      <SeoHead
+        books={books}
+        selectedBook={selectedBook}
+        excerptBook={excerptBook}
+        currentView={currentView}
+        isMaintenanceMode={isMaintenanceMode}
+      />
+
       {/* Top Header with prominent non-dismissible maintenance banner */}
       <Header
         cartCount={cartTotalCount}
         onOpenCart={() => setIsCartOpen(true)}
-        onNavigate={setCurrentView}
+        onNavigate={handleNavigate}
         currentView={currentView}
         isMaintenanceMode={isMaintenanceMode}
         maintenanceMessage={maintenanceMessage}
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
       />
 
-      {/* Main View Switcher */}
+      {/* Main View Switcher with smooth fade-in transitions */}
       <main className="flex-1">
-        {currentView === 'catalog' && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {currentView === 'catalog' && (
           <CatalogSection
             books={books}
             onSelectBook={(book) => setSelectedBook(book)}
@@ -875,6 +982,8 @@ export default function App() {
             initialTab={adminInitialTab}
           />
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Footer */}
@@ -967,5 +1076,6 @@ export default function App() {
         />
       )}
     </div>
+    </MotionConfig>
   );
 }

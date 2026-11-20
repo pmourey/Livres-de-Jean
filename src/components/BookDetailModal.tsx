@@ -373,14 +373,23 @@ export const BookDetailModal: React.FC<BookDetailModalProps> = ({
                     <span>Extraits significatifs et citations du texte</span>
                   </h4>
                   <div className="space-y-2">
-                    {book.keyQuotes.map((q, idx) => (
-                      <blockquote
-                        key={idx}
-                        className="p-3 bg-stone-100/80 rounded border-l-4 border-[#8B1E2D] text-xs text-stone-800 italic leading-relaxed"
-                      >
-                        « {q} »
-                      </blockquote>
-                    ))}
+                    {book.keyQuotes.map((q, idx) => {
+                      const cleaned = q
+                        .trim()
+                        .replace(/^«\s*/, '')
+                        .replace(/\s*»$/, '')
+                        .trim();
+                      return (
+                        <blockquote
+                          key={idx}
+                          className="p-3 bg-[#F5F1E9] dark:bg-[#2A211A] rounded border border-stone-200/70 dark:border-[#4A3C30] border-l-4 border-l-[#8B1E2D] dark:border-l-[#D9737F] text-xs text-stone-800 dark:text-[#F0E5D3] italic leading-relaxed"
+                        >
+                          «{'\u00A0'}
+                          {cleaned}
+                          {'\u00A0'}»
+                        </blockquote>
+                      );
+                    })}
                   </div>
                 </div>
               )}

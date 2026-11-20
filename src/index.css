@@ -1,10 +1,21 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     color: #22211F;
     background-color: #FAF8F5;
+    transition: background-color 220ms ease, color 220ms ease;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.dark body {
+    color: #E6DAC6;
+    background-color: #17120E;
   }
 
   h1, h2, h3, h4, .font-serif-display {
@@ -15,6 +26,282 @@
   .font-cinzel {
     font-family: 'Cinzel', serif;
   }
+}
+
+/* ==========================================================================
+   Mode Sombre Sépia (Lecture nocturne)
+   Préserve les tons parchemin chauds, les accents bordeaux/or et les polices
+   classiques pour un confort de lecture prolongé sans éblouissement.
+   ========================================================================== */
+html.dark :where(:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *):not(.preserve-light)) {
+  border-color: rgba(168, 138, 104, 0.24);
+}
+
+/* Surfaces principales & cartes */
+html.dark .bg-\[\#FAF8F5\],
+html.dark .bg-\[\#FAF8F5\]\/95,
+html.dark .bg-\[\#FAF8F5\]\/60,
+html.dark .bg-\[\#FAF8F5\]\/50,
+html.dark .bg-\[\#FAF7F0\],
+html.dark .bg-\[\#FCFBF7\] {
+  background-color: #17120E;
+}
+
+html.dark .bg-\[\#FAF8F5\]\/95 {
+  background-color: rgba(23, 18, 14, 0.95);
+}
+
+html.dark .bg-\[\#FAF8F5\]\/60,
+html.dark .bg-\[\#FAF8F5\]\/50 {
+  background-color: rgba(26, 20, 16, 0.72);
+}
+
+html.dark .bg-\[\#FCFBF7\] {
+  background-color: #1D1712;
+}
+
+html.dark .bg-\[\#FAF7F0\] {
+  background-color: #201914;
+}
+
+html.dark .bg-white:not(#printable-document):not(#printable-document *):not(.preserve-light),
+html.dark .bg-white\/95:not(#printable-document):not(#printable-document *),
+html.dark .bg-white\/90:not(#printable-document):not(#printable-document *),
+html.dark .bg-white\/80:not(#printable-document):not(#printable-document *) {
+  background-color: #221B15;
+}
+
+html.dark .bg-\[\#F5F1E9\],
+html.dark .bg-\[\#F5F1E9\]\/85,
+html.dark .bg-\[\#F4EFE6\],
+html.dark .bg-\[\#EFEAE1\],
+html.dark .bg-stone-50:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-50\/90:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-50\/80:not(#printable-document):not(#printable-document *) {
+  background-color: #2A211A;
+}
+
+html.dark .bg-stone-100:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-100\/80:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-100\/70:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-100\/60:not(#printable-document):not(#printable-document *),
+html.dark .bg-stone-200:not(#printable-document):not(#printable-document *) {
+  background-color: #32271F;
+}
+
+/* Hover surfaces en mode sombre sépia */
+html.dark .hover\:bg-stone-50:hover,
+html.dark .hover\:bg-stone-100:hover,
+html.dark .hover\:bg-stone-100\/60:hover,
+html.dark .hover\:bg-stone-200:hover,
+html.dark .hover\:bg-\[\#F5F1E9\]:hover,
+html.dark .hover\:bg-white:hover:not(#printable-document):not(#printable-document *) {
+  background-color: #3A2E24;
+}
+
+/* Bordures chaudes sépia */
+html.dark .border-\[\#E7E2D9\],
+html.dark .border-\[\#DFD7C7\],
+html.dark .border-\[\#E3DCCE\],
+html.dark .border-\[\#E8E2D5\],
+html.dark .border-stone-100,
+html.dark .border-stone-200,
+html.dark .border-stone-200\/80,
+html.dark .border-stone-300 {
+  border-color: #3F3227;
+}
+
+/* Typographie & encres parchemin haute lisibilité */
+html.dark .text-\[\#22211F\]:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *),
+html.dark .text-\[\#2B1810\]:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *),
+html.dark .text-\[\#2C1810\]:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *),
+html.dark .text-\[\#2B231D\]:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *),
+html.dark .text-stone-900:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *) {
+  color: #F3E8D6;
+}
+
+html.dark .text-stone-800:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *) {
+  color: #EAE0CE;
+}
+
+html.dark .text-stone-700:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *) {
+  color: #D8CBB6;
+}
+
+html.dark .text-stone-600:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *) {
+  color: #C0B09A;
+}
+
+html.dark .text-stone-500:not(#printable-document):not(#printable-document *):not([role="alert"]):not([role="alert"] *) {
+  color: #A59580;
+}
+
+html.dark .hover\:text-stone-900:hover:not([role="alert"]):not([role="alert"] *),
+html.dark .hover\:text-stone-800:hover:not([role="alert"]):not([role="alert"] *) {
+  color: #F7EFE0;
+}
+
+/* Accent bordeaux éditorial éclairci pour contraste optimal sur fond sombre */
+html.dark .text-\[\#8B1E2D\]:not(.preserve-light):not([role="alert"]):not([role="alert"] *) {
+  color: #E3848F;
+}
+
+html.dark .hover\:text-\[\#8B1E2D\]:hover:not([role="alert"]):not([role="alert"] *) {
+  color: #F09AA4;
+}
+
+html.dark .border-\[\#8B1E2D\],
+html.dark .border-l-\[\#8B1E2D\] {
+  border-color: #D9737F;
+}
+
+html.dark .bg-\[\#8B1E2D\]\/10 {
+  background-color: rgba(217, 115, 127, 0.16);
+}
+
+/* Encarts ambre, bleu, émeraude et rose adaptés au mode sombre sépia */
+html.dark .bg-amber-50:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/90:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/80:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/75:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/70:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/60:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-100:not([role="alert"]):not([role="alert"] *) {
+  background-color: rgba(180, 125, 42, 0.16);
+}
+
+html.dark .hover\:bg-amber-200:hover:not([role="alert"]):not([role="alert"] *) {
+  background-color: rgba(180, 125, 42, 0.28);
+}
+
+html.dark .border-amber-200:not([role="alert"]),
+html.dark .border-amber-200\/80:not([role="alert"]),
+html.dark .border-amber-200\/70:not([role="alert"]),
+html.dark .border-amber-200\/50:not([role="alert"]),
+html.dark .border-amber-300:not([role="alert"]),
+html.dark .border-amber-300\/90:not([role="alert"]),
+html.dark .border-amber-300\/80:not([role="alert"]) {
+  border-color: rgba(212, 175, 55, 0.34);
+}
+
+html.dark .text-amber-950:not([role="alert"]):not([role="alert"] *),
+html.dark .text-amber-900:not([role="alert"]):not([role="alert"] *),
+html.dark .text-amber-800:not([role="alert"]):not([role="alert"] *) {
+  color: #F2D79B;
+}
+
+html.dark .bg-blue-50,
+html.dark .bg-blue-50\/80,
+html.dark .bg-sky-50\/50 {
+  background-color: rgba(56, 114, 178, 0.16);
+}
+
+html.dark .border-blue-200,
+html.dark .border-sky-200,
+html.dark .border-sky-100 {
+  border-color: rgba(110, 168, 232, 0.3);
+}
+
+html.dark .text-blue-900,
+html.dark .text-blue-700 {
+  color: #BDD8F7;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(34, 134, 88, 0.16);
+}
+
+html.dark .border-emerald-200,
+html.dark .border-emerald-300 {
+  border-color: rgba(74, 189, 135, 0.32);
+}
+
+html.dark .text-emerald-950,
+html.dark .text-emerald-900,
+html.dark .text-emerald-800,
+html.dark .text-emerald-700 {
+  color: #9EE2BF;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-red-50 {
+  background-color: rgba(185, 55, 72, 0.18);
+}
+
+html.dark .border-rose-200,
+html.dark .border-red-200 {
+  border-color: rgba(230, 110, 125, 0.34);
+}
+
+html.dark .text-rose-700,
+html.dark .text-red-700 {
+  color: #F7B4BE;
+}
+
+/* Champs de saisie en mode sombre sépia */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark textarea,
+html.dark select {
+  background-color: #1B1510;
+  color: #F3E8D6;
+  border-color: #4A3C30;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #8F7F6B;
+}
+
+/* Boutons désactivés lisibles sur fond sombre */
+html.dark button:disabled.bg-stone-300 {
+  background-color: #362C23;
+  color: #9E8E78;
+}
+
+/* Les factures et bordereaux imprimables restent sur papier blanc */
+html.dark #printable-document {
+  background-color: #ffffff;
+  color: #1c1917;
+}
+
+/* Barre de défilement discrète et lisible pour les extraits de livres */
+.excerpt-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 30, 45, 0.35) rgba(215, 204, 188, 0.35);
+}
+
+.excerpt-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.excerpt-scroll::-webkit-scrollbar-track {
+  background: rgba(215, 204, 188, 0.35);
+  border-radius: 9999px;
+}
+
+.excerpt-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 30, 45, 0.38);
+  border-radius: 9999px;
+}
+
+.excerpt-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(139, 30, 45, 0.62);
+}
+
+html.dark .excerpt-scroll {
+  scrollbar-color: rgba(217, 115, 127, 0.55) rgba(58, 46, 36, 0.65);
+}
+
+html.dark .excerpt-scroll::-webkit-scrollbar-track {
+  background: rgba(58, 46, 36, 0.65);
+}
+
+html.dark .excerpt-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(217, 115, 127, 0.52);
+}
+
+html.dark .excerpt-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(227, 132, 143, 0.78);
 }
 
 /* Custom scrollbars and print styles for invoices and shipping labels */
