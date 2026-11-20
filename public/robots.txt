@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pmourey.github.io/Livres-de-Jean/sitemap.xml
