@@ -1,3 +1,5 @@
+import { AGORAVOX_AUTHOR_PROFILES } from './data/agoravoxAuthorProfiles';
+
 export type D1Result<T = unknown> = { results?: T[]; success: boolean; meta?: any };
 export type D1PreparedStatement = {
   bind(...values: any[]): D1PreparedStatement;
@@ -1827,10 +1829,10 @@ export default {
 
           const topCommenters = topRes.results || [];
           if (topCommenters.length > 0) {
-            const leaderboardLines = topCommenters.map(
-              (c, i) =>
-                `${i + 1}. ${c.author_name} : ${c.nb_comments} commentaires sur ${c.nb_articles} articles`
-            );
+            const leaderboardLines = topCommenters.map((c, i) => {
+              const profileUrl = AGORAVOX_AUTHOR_PROFILES[c.author_name];
+              return `${i + 1}. ${c.author_name}${profileUrl ? ` (Profil AgoraVox : ${profileUrl})` : ''} : ${c.nb_comments} commentaires sur ${c.nb_articles} articles`;
+            });
 
             // Fetch 1 representative comment with exact URL for each of the top 6 commenters
             const topNames = topCommenters.slice(0, 6).map((c) => c.author_name);
@@ -1958,10 +1960,10 @@ export default {
           `Source Livre ${idx + 1} (OUVRAGE IMPRIMÉ D’ÉMILE MOUREY — PAS D’URL WEB) — Ouvrage : ${c.book_title}${c.tome ? ` (${c.tome})` : ''} | Page ${c.page_number}\n${String(c.content || '').slice(0, 1000)}`
       );
 
-      const agoravoxContextBlocks = retrievedAgoravox.map(
-        (a, idx) =>
-          `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}` : 'Article AgoraVox d’Émile Mourey'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL AGORAVOX : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`
-      );
+      const agoravoxContextBlocks = retrievedAgoravox.map((a, idx) => {
+        const profileUrl = AGORAVOX_AUTHOR_PROFILES[a.author_name];
+        return `Source AgoraVox ${idx + 1} — ${a.source_type === 'comment' ? `Commentaire de ${a.author_name}${profileUrl ? ` (Profil AgoraVox : ${profileUrl})` : ''}` : 'Article AgoraVox d’Émile Mourey (Profil AgoraVox : https://www.agoravox.fr/auteur/emile-mourey)'} | Titre : ${a.article_title}${a.published_date ? ` (${a.published_date})` : ''} | URL AGORAVOX : ${a.source_url}\n${String(a.content || '').slice(0, 850)}`;
+      });
 
       const academicContextBlocks = retrievedAcademic.map(
         (ac, idx) =>
@@ -1989,7 +1991,7 @@ export default {
         "Ta mission est d'expliquer fidèlement, clairement et avec rigueur la position et les thèses d'Émile Mourey (officier saint-cyrien, historien indépendant) à partir de ses ouvrages et de ses articles/débats sur AgoraVox, puis de présenter dans une section dédiée la confrontation avec les publications scientifiques et rapports de fouilles archéologiques officiels (CNRS, HAL-SHS, INRAP, revue Gallia, Persée, thèses universitaires) présents dans les sources.",
         'Règles impératives de citation (AUCUN MÉLANGE DE SOURCES) :',
         "1. OUVRAGES D'ÉMILE MOUREY (Source Livre) : Cite-les UNIQUEMENT en italique avec le numéro de page, SANS AUCUN LIEN URL Markdown. Exemple exact : (*La Gaule en héritage, 1ère partie*, p. 61) ou (*Histoire de Bibracte, Tome 2 : Le Bouclier Éduen*, p. 106). INTERDICTION ABSOLUE d'attacher une URL AgoraVox ou HAL au titre d'un livre imprimé !",
-        "2. ARTICLES & COMMENTAIRES AGORAVOX (Source AgoraVox) : Cite-les avec un lien Markdown cliquable dont le libellé est le titre de l'article AgoraVox ou l'auteur/date du commentaire, et dont l'URL est l'URL AGORAVOX exacte de cette source. Exemple : [Commentaire d'Émile Mourey sur « Bibracte au mont Beuvray... » (12 déc. 2020)](URL_AGORAVOX_EXACTE).",
+        "2. ARTICLES & COMMENTAIRES AGORAVOX (Source AgoraVox) : Cite-les avec un lien Markdown cliquable dont le libellé est le titre de l'article AgoraVox ou l'auteur/date du commentaire, et dont l'URL est l'URL AGORAVOX exacte de cette source. Lorsqu'un pseudo de commentateur AgoraVox dispose d'un « Profil AgoraVox : https://... » dans les sources, transforme son pseudo en lien Markdown cliquable [Pseudo](URL_PROFIL_AGORAVOX) à chaque mention.",
         "3. PUBLICATIONS SCIENTIFIQUES & FOUILLES OFFICIELLES (Source Scientifique / Archéologique Officielle) : Consacre systématiquement une section « Confrontation avec les fouilles archéologiques et publications scientifiques officielles » (lorsque des Sources Scientifiques sont fournies) et cite explicitement chaque publication pertinente (auteurs, année, titre, revue/institution) avec son lien Markdown cliquable [Auteurs (Année) — Titre](URL_SCIENTIFIQUE_EXACTE) pointant vers hal.science, shs.hal.science ou persee.fr.",
         "4. N'utilise jamais d'astérisques * à l'intérieur des crochets [...] d'un lien Markdown (écris [Texte du lien](URL) et jamais [*Texte*](URL)).",
         "5. N'écris JAMAIS d'identifiants techniques internes du type [AGORAVOX 1], [LIVRE 1] ou [Source Scientifique 1].",

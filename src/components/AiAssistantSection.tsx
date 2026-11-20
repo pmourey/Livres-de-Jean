@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Book } from '../types';
 import { STUDY_DOSSIERS } from '../data/studyDossiers';
+import { AGORAVOX_AUTHOR_PROFILES } from '../data/agoravoxAuthorProfiles';
 import { PAYMENTS_API_BASE } from '../config/commerce';
 import {
   Sparkles,
@@ -190,11 +191,29 @@ const renderInlineFormatting = (
         nodes.push(token);
       }
     } else if (token.startsWith('**') && token.endsWith('**')) {
-      nodes.push(
-        <strong key={`b-${keyIdx++}`} className="font-semibold text-[#2B1810]">
-          {token.slice(2, -2)}
-        </strong>
-      );
+      const boldText = token.slice(2, -2);
+      const authorProfileUrl = AGORAVOX_AUTHOR_PROFILES[boldText.trim()];
+      if (authorProfileUrl && boldText.trim().toLowerCase() !== 'emile mourey') {
+        nodes.push(
+          <a
+            key={`ap-${keyIdx++}`}
+            href={authorProfileUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={`Voir le profil AgoraVox de ${boldText.trim()}`}
+            className="inline-flex items-center gap-0.5 font-semibold text-[#8B1E2D] hover:text-[#65131E] underline decoration-[#8B1E2D]/50 underline-offset-2"
+          >
+            <span>{boldText}</span>
+            <ExternalLink className="w-3 h-3 inline shrink-0" />
+          </a>
+        );
+      } else {
+        nodes.push(
+          <strong key={`b-${keyIdx++}`} className="font-semibold text-[#2B1810]">
+            {boldText}
+          </strong>
+        );
+      }
     } else if (token.startsWith('*') && token.endsWith('*')) {
       nodes.push(
         <em key={`i-${keyIdx++}`} className="italic text-stone-800">
