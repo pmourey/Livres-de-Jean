@@ -464,5 +464,78 @@ export const STUDY_DOSSIERS: StudyDossier[] = [
     relatedBookIds: ['mourey-gaule-en-heritage', 'mourey-coffret-integrale-bibracte'],
     agoravoxUrl: 'https://www.agoravox.fr/auteur/emile-mourey',
     agoravoxLabel: 'Parcourir les articles sur AgoraVox'
+  },
+  {
+    id: 'dossier-wikipedia-recherche-independante',
+    slug: 'wikipedia-censure-recherche-independante',
+    number: '08',
+    domain: 'Textes sacrés & Philosophie',
+    title: 'Wikipédia, auto-édition et éthique du débat : le droit à la recherche indépendante',
+    subtitle: 'Lettre ouverte à Wikipédia (2009), attaques ad hominem et place des chercheurs hors institution',
+    lead:
+      "En novembre 2009, suite au rejet de ses contributions sur Wikipédia au motif qu'il publie en auto-édition sans comité de lecture universitaire, Émile Mourey publie sur AgoraVox une « Lettre ouverte à Wikipédia au sujet de Bibracte et de Gergovie ». Les échanges qui s'ensuivent posent une question de fond : l'absence de label académique justifie-t-elle la censure d'une argumentation vérifiable ou le recours aux insultes ad hominem ?",
+    moureyPoints: [
+      "Refus de l'argument d'autorité et des attaques ad hominem : face à un contributeur universitaire de Wikipédia qualifiant ses livres de « vaste imposture », d'« élucubrations » et de « délires » (propos relayés le 20 novembre 2009 sous l'article AgoraVox), Émile Mourey rappelle que « à défaut d'arguments qui prouveraient que le mont Beuvray est le site de Bibracte, [viennent] les insultes ».",
+      "Critique du verrouillage éditorial (« entre-soi » des comités) : l'auteur explique pourquoi l'auto-édition indépendante ne préjuge pas de la validité d'un raisonnement topographique ou philologique — « Que mon avis soit minoritaire ? Et alors, est-ce une raison pour refuser le débat ? » — et souligne qu'un chercheur libre doit pouvoir interpeller les institutions sans être disqualifié sur son statut.",
+      "Distinction entre vérification des faits et statut de l'auteur : dans le fil du 20 novembre 2009, des lecteurs comme Rétif rappellent que la rigueur encyclopédique ne consiste pas à censurer toute hypothèse minoritaire ni à se retrancher derrière le mépris, mais à répondre point par point sur les pièces (textes de César, distances, stratigraphie). L'auteur relève également la déformation de ses propres thèses (il n'a jamais qualifié le mont Beuvray de « site mineur », mais d'oppidum stratégique majeur : Gorgobina)."
+    ],
+    academicCounterpointTitle: 'Règles de vérifiabilité encyclopédique (Wikipédia) & éthique scientifique',
+    academicCounterpoint:
+      "Les règles de Wikipédia (WP:Vérifiabilité, WP:Travaux inédits, WP:Proportion) imposent de s'appuyer sur des sources secondaires publiées par des revues à comité de lecture ou des maisons d'édition reconnues, et excluent par principe les ouvrages auto-édités afin d'éviter la diffusion de théories non évaluées par les pairs. Toutefois, la communauté scientifique et les principes mêmes de Wikipédia (WP:Règles de savoir-vivre, WP:Pas d'attaque personnelle) condamnent formellement le mépris et l'insulte ad hominem : la critique légitime d'une thèse minoritaire doit porter exclusivement sur la méthode et les preuves matérielles, jamais sur la dignité de l'auteur.",
+    keySources: [
+      {
+        label: 'É. Mourey — Lettre ouverte à Wikipédia au sujet de Bibracte et de Gergovie (AgoraVox, nov. 2009)',
+        url: 'https://www.agoravox.fr/tribune-libre/article/lettre-ouverte-a-wikipedia-au-65265',
+        institution: 'AgoraVox — Article original',
+        kind: 'archive'
+      },
+      {
+        label: 'Échange du 20 nov. 2009 — Réponse d’Émile Mourey aux attaques (forum #2315779)',
+        url: 'https://www.agoravox.fr/tribune-libre/article/lettre-ouverte-a-wikipedia-au-65265#forum2315779',
+        institution: 'AgoraVox — Réponse de l’auteur',
+        kind: 'archive'
+      },
+      {
+        label: 'Commentaire de Rétif sur les limites de Wikipédia (forum #2316695)',
+        url: 'https://www.agoravox.fr/tribune-libre/article/lettre-ouverte-a-wikipedia-au-65265#forum2316695',
+        institution: 'AgoraVox — Débat lecteurs',
+        kind: 'archive'
+      },
+      {
+        label: 'Wikipédia — Règles de savoir-vivre & Pas d’attaque personnelle (WP:PAP)',
+        url: 'https://fr.wikipedia.org/wiki/Wikip%C3%A9dia:Pas_d%27attaque_personnelle',
+        institution: 'Charte officielle Wikipédia',
+        kind: 'scientific'
+      },
+      {
+        label: 'Wikipédia — Travaux inédits & Sources secondaires (WP:TI)',
+        url: 'https://fr.wikipedia.org/wiki/Wikip%C3%A9dia:Travaux_in%C3%A9dits',
+        institution: 'Charte officielle Wikipédia',
+        kind: 'scientific'
+      }
+    ],
+    bookExcerpts: [
+      {
+        bookId: 'mourey-gaule-en-heritage',
+        bookTitle: 'La Gaule en héritage',
+        tome: '1ère partie',
+        page: 'p. 63',
+        heading: 'Lettre du 15 janvier 2003 adressée au bilan scientifique Gallia 55',
+        quote:
+          "« Il est écrit dans un livre que vous avez certainement lu que lorsque des réunions de travail se tiennent, probablement au Centre archéologique européen, il arrive que l’on fasse des plaisanteries aux dépens d’historiens qui auraient découvert… un nouveau site. [...] À défaut d'arguments qui prouveraient que le mont Beuvray est le site de Bibracte, les insultes. Que mon avis soit minoritaire ? Et alors, est-ce une raison pour refuser le débat ? »"
+      },
+      {
+        bookId: 'mourey-bibracte-tome-2-bouclier-eduen',
+        bookTitle: 'Histoire de Bibracte',
+        tome: 'Tome 2 : Le Bouclier Éduen',
+        page: 'p. 106',
+        heading: 'Réponse à la caricature : le Mont-Beuvray n’a jamais été qualifié de « site mineur »',
+        quote:
+          "« Le Mont-Beuvray ne fut pas Bibracte ; mais il faut cependant lui rendre justice : il fut un des plus importants oppidum de la cité éduenne. [...] Le Mont-Beuvray était le double du Mont-Saint-Vincent sur le plan de la stratégie territoriale. »"
+      }
+    ],
+    relatedBookIds: ['mourey-gaule-en-heritage', 'mourey-bibracte-tome-2-bouclier-eduen', 'mourey-gergovie-tome-1'],
+    agoravoxUrl: 'https://www.agoravox.fr/tribune-libre/article/lettre-ouverte-a-wikipedia-au-65265#forum2316695',
+    agoravoxLabel: 'Lire la Lettre ouverte à Wikipédia & débats'
   }
 ];
