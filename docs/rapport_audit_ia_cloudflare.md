@@ -11,7 +11,7 @@
 
 | # | Amélioration / Chantier | Statut | Détails techniques & Commit / Version |
 | :---: | :--- | :---: | :--- |
-| 1 | **Indexation intégrale de 8 ouvrages PDF d'Émile Mourey** (`book_chunks` + FTS5) | ✅ **Déployé** | **6 937 passages** avec numéros de pages exacts (`2 798` pages couvertes). |
+| 1 | **Indexation intégrale de 11 volumes PDF d'Émile Mourey (100 % du catalogue)** (`book_chunks` + FTS5) | ✅ **Déployé** | **8 266 passages** avec numéros de pages exacts (`3 370` pages couvertes, incluant *Christ T2*, *Mahomet T2* et *La Gaule en héritage 2e partie*). |
 | 2 | **Indexation complète AgoraVox (articles + commentaires + profils auteurs)** | ✅ **Déployé** | **559 articles** (`6 586` segments) + **22 784 commentaires** (`1 377` intervenants) + 120 profils `/auteur/...` cliquables (`2fe596a`). |
 | 3 | **Indexation des publications scientifiques officielles** (`academic_chunks` + FTS5) | ✅ **Déployé** | **740 publications** (704 CNRS HAL-SHS, 32 archives universitaires, *Gallia* 55 / Persée, *CRAI*, OpenEdition RACF, Bibracte). Bug SQL (`hal_id`/`pdf_url`) corrigé (`c94d8f0`). |
 | 4 | **Fusion du contexte de session sur les questions de suivi** | ✅ **Déployé** | Les questions de suivi réinjectent automatiquement les toponymes/mots-clés des 2 questions précédentes (`ba6c76d`). |
@@ -38,16 +38,16 @@ Dans la session partagée [`em-511b1s5s0z`](https://pmourey.github.io/Livres-de-
 
 ## 3. Inventaire exhaustif des données indexées dans Cloudflare D1
 
-Base Cloudflare D1 : `livres_de_jean` (`16181fe9-b0a5-4f20-979b-68c745f2c03d`) — taille actuelle : **95,26 Mo** (plafond 5 Go), **37 047 enregistrements textuels** répartis en **3 corpus isolés** dotés chacun d'un index plein texte **SQLite FTS5** (ranking BM25).
+Base Cloudflare D1 : `livres_de_jean` (`16181fe9-b0a5-4f20-979b-68c745f2c03d`) — taille actuelle : **97,83 Mo** (plafond 5 Go), **38 376 enregistrements textuels** répartis en **3 corpus isolés** dotés chacun d'un index plein texte **SQLite FTS5** (ranking BM25).
 
 | Corpus | Table D1 & Index FTS5 | Volume indexé | Origine exacte |
 | :--- | :--- | ---: | :--- |
-| **Ouvrages d'Émile Mourey** | `book_chunks` / `book_chunks_fts` | **6 937** passages | PDF originaux extraits page par page (`scripts/index-books-to-d1.mjs`) |
+| **Ouvrages d'Émile Mourey** | `book_chunks` / `book_chunks_fts` | **8 266** passages | 11 volumes PDF originaux extraits page par page (100 % du catalogue) |
 | **AgoraVox (Articles & Débats)** | `agoravox_chunks` / `agoravox_chunks_fts` | **29 370** extraits | Archive locale `~/Agoravox` + 89 articles récents collectés sur `agoravox.fr` (`scripts/index-agoravox-to-d1.py`, `scripts/sync-missing-agoravox.py`) |
 | **Publications scientifiques & archéologiques** | `academic_chunks` / `academic_chunks_fts` | **740** notices & résumés | API ouverte **CNRS HAL-SHS** (`api.archives-ouvertes.fr`) + synthèses **Persée / *Gallia* 55 / *CRAI* / INRAP / OpenEdition** (`scripts/index-academic-to-d1.py`) |
-| **Total indexé** | **3 tables + 3 index FTS5** | **37 047** entrées | — |
+| **Total indexé** | **3 tables + 3 index FTS5** | **38 376** entrées | — |
 
-### 3.1. Corpus 1 — Ouvrages d'Émile Mourey (`book_chunks` : 6 937 passages)
+### 3.1. Corpus 1 — Ouvrages d'Émile Mourey (`book_chunks` : 8 266 passages — 100 % du catalogue)
 
 | Identifiant (`book_id`) | Ouvrage | Tome | Passages | Pages couvertes |
 | :--- | :--- | :--- | ---: | ---: |
@@ -57,11 +57,12 @@ Base Cloudflare D1 : `livres_de_jean` (`16181fe9-b0a5-4f20-979b-68c745f2c03d`) �
 | `mourey-bibracte-tome-4-dieu-rayonnant` | *Histoire de Bibracte* | Tome 4 : Dieu Rayonnant | 700 | p. 1 à 370 |
 | `mourey-bibracte-tome-5-dieu-cache` | *Histoire de Bibracte* | Tome 5 : Dieu Caché | 798 | p. 1 à 406 |
 | `mourey-gaule-en-heritage` | *La Gaule en héritage* | 1ère partie | 798 | p. 1 à 302 |
+| `mourey-gaule-en-heritage-2` | *La Gaule en héritage* | 2ème partie | 207 | p. 1 à 84 |
 | `mourey-christ-tome-1` | *Histoire du Christ* | Tome 1 | 864 | p. 1 à 415 |
+| `mourey-christ-tome-2` | *Histoire du Christ* | Tome 2 | 810 | p. 1 à 388 |
 | `mourey-mahomet-tome-1` | *Histoire de Mahomet* | Tome 1 | 313 | p. 1 à 101 |
-| **Total** | **8 volumes PDF intégraux** | — | **6 937** | **2 798 pages** |
-
-> *Ouvrages restant à ingérer en PDF complet* : *Histoire du Christ Tome 2*, *Histoire de Mahomet Tome 2*, *La Gaule en héritage (2ème partie)* (actuellement couverts par le contexte de repli catalogue + 7 dossiers d'études).
+| `mourey-mahomet-tome-2` | *Histoire de Mahomet* | Tome 2 | 312 | p. 1 à 100 |
+| **Total** | **11 volumes PDF intégraux (100 % du catalogue)** | — | **8 266** | **3 370 pages** |
 
 ### 3.2. Corpus 2 — AgoraVox (`agoravox_chunks` : 29 370 extraits)
 
@@ -120,7 +121,7 @@ flowchart TD
 Pour que les **thèses, ouvrages et références documentaires d'Émile Mourey** soient mieux connus, correctement attribués et cités sans distorsion par les **modèles publics d'IA** (Google AI Overviews / Gemini, ChatGPT Search, Perplexity, Claude) **et** pour continuer à améliorer l'Assistant IA du site :
 
 ### A. Enrichissement du corpus interne (RAG Cloudflare)
-- [ ] **Ingérer les 3 PDF manquants dans `book_chunks`** : *Histoire du Christ Tome 2*, *Histoire de Mahomet Tome 2* et *La Gaule en héritage (2ème partie)* afin d'atteindre 100 % du catalogue en recherche page par page.
+- [x] **Ingérer les 3 PDF manquants dans `book_chunks`** *(Déployé — +1 329 passages : Christ T2 810, Mahomet T2 312, La Gaule en héritage 2e partie 207 → total 8 266 passages / 100 % du catalogue)*.
 - [ ] **Indexer le texte intégral des conclusions de fouilles HAL-SHS en libre accès** : télécharger les PDF ouverts des 20–30 rapports majeurs sur Bibracte, Alésia et Gergovie pour enrichir `academic_chunks` au-delà des résumés (*abstracts*).
 - [x] **Afficher le tableau de bord `ai_query_logs` dans l'Espace Gestion Auteur** *(Déployé — onglet « Journal IA (RAG) » avec filtres Trous documentaires / À enrichir / Utiles et export JSONL)* : visualiser directement dans `AdminDashboard.tsx` les questions lecteurs, les retours `👎 À enrichir` et les requêtes ayant renvoyé `0` passage livre ou scientifique.
 - [ ] **Créer une table `curated_qa` (fiches de référence validées par l'éditeur)** : injecter en priorité des synthèses relues et validées pour les 20–30 questions les plus fréquentes (Bibracte/Beuvray, *altero die*, Gorgobina, Gergovie/Le Crest, Vézelay, Qumrân, Tabari).

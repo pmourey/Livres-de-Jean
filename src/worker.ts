@@ -1417,7 +1417,7 @@ export default {
       const betaFreeEnabled = env.AI_BETA_FREE !== 'false';
       const userId = customerIdFromEmail(session.email);
       let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
-      let indexedChunksCount = cachedIndexCounts?.chunks || 6937;
+      let indexedChunksCount = cachedIndexCounts?.chunks || 8266;
       let indexedAgoravoxCount = cachedIndexCounts?.agoravox || 29370;
       let indexedAcademicCount = cachedIndexCounts?.academic || 740;
       let d1QuotaExceeded = false;

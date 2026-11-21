@@ -10,3 +10,4 @@ coverage/
 /.env.local
 .dev.vars
 /public/.nojekyll
+migrations/*_seed_*.sql
