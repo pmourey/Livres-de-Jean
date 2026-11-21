@@ -185,9 +185,20 @@ html.dark .border-amber-300\/80:not([role="alert"]) {
 }
 
 html.dark .text-amber-950:not([role="alert"]):not([role="alert"] *),
+html.dark .text-amber-950\/90:not([role="alert"]):not([role="alert"] *),
 html.dark .text-amber-900:not([role="alert"]):not([role="alert"] *),
+html.dark .text-amber-900\/90:not([role="alert"]):not([role="alert"] *),
 html.dark .text-amber-800:not([role="alert"]):not([role="alert"] *) {
-  color: #F2D79B;
+  color: #F7E1B0;
+}
+
+html.dark .text-amber-700:not([role="alert"]):not([role="alert"] *) {
+  color: #F0CA7A;
+}
+
+html.dark .bg-amber-50\/80:not([role="alert"]):not([role="alert"] *),
+html.dark .bg-amber-50\/75:not([role="alert"]):not([role="alert"] *) {
+  background-color: rgba(146, 98, 28, 0.22);
 }
 
 html.dark .bg-blue-50,

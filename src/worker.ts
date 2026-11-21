@@ -1539,13 +1539,29 @@ export default {
       const body = await readJson(request);
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
-      const sourceScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox' | 'academic'
+      const requestedScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox' | 'academic'
       const history = Array.isArray(body?.history) ? body.history.slice(-10) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
       if (!question || question.length > 1000) {
         return json({ error: 'Question invalide (entre 1 et 1 000 caractères).' }, { status: 400 });
       }
+
+      const qNormEarly = question
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      // Smart scope expansion: if user explicitly asks for scientific/archaeological publications or official excavations,
+      // ensure academic_chunks is always queried even if the dropdown stayed on 'agoravox' or 'books'
+      const explicitlyAsksAcademic =
+        /(scientifique|universitaire|archeologi|fouille|cnrs|gallia|inrap|hal|persee|these|contredi|objection|consensus|officiel)/i.test(
+          qNormEarly
+        );
+      const sourceScope = requestedScope;
+      const shouldQueryAcademic =
+        !bookIdFilter &&
+        (sourceScope === 'all' || sourceScope === 'academic' || explicitlyAsksAcademic);
 
       // 1. Retrieve literal indexed passages from Cloudflare D1 (book_chunks + agoravox_chunks + academic_chunks via FTS5)
       type ChunkRow = {
@@ -1595,14 +1611,25 @@ export default {
           'article', 'articles', 'agoravox', 'commentaire', 'commentaires', 'situe',
           'scientifique', 'scientifiques', 'universitaire', 'consensus', 'archeologique'
         ]);
-        const keywords = question
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9\s-]/g, ' ')
-          .split(/\s+/)
-          .filter((w) => w.length >= 3 && !stopWords.has(w))
-          .slice(0, 8);
+        const extractKeywords = (rawText: string) =>
+          rawText
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s-]/g, ' ')
+            .split(/\s+/)
+            .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+        const currentKeywords = extractKeywords(question);
+        // For follow-up questions (e.g. "peux-tu citer les publications scientifiques contredisant ses thèses ?"),
+        // enrich with topical keywords from the user's previous question(s) in the same session.
+        const historyUserText = history
+          .filter((h: any) => h?.role === 'user' && h?.text)
+          .slice(-2)
+          .map((h: any) => String(h.text))
+          .join(' ');
+        const historyKeywords = extractKeywords(historyUserText);
+        const keywords = Array.from(new Set([...currentKeywords, ...historyKeywords])).slice(0, 10);
 
         const safeTerms = keywords.map((k) => `"${k.replace(/"/g, '')}"`);
         const ftsAndQuery = safeTerms.length >= 2 ? safeTerms.slice(0, 3).join(' AND ') : safeTerms.join(' OR ');
@@ -1737,7 +1764,7 @@ export default {
         }
 
         // 1C-bis. Search peer-reviewed scientific & archaeological publications (CNRS HAL-SHS / Gallia / Persée)
-        if (keywords.length > 0 && (sourceScope === 'all' || sourceScope === 'academic') && !bookIdFilter) {
+        if (keywords.length > 0 && shouldQueryAcademic) {
           try {
             const seenAcadIds = new Set<number>();
             const acadMatches: AcademicRow[] = [];
@@ -1875,7 +1902,7 @@ export default {
       }
 
       // 1D. Canonical Academic Fallback if D1 quota is temporarily reached or no FTS match found
-      if (retrievedAcademic.length === 0 && (sourceScope === 'all' || sourceScope === 'academic') && !bookIdFilter) {
+      if (retrievedAcademic.length === 0 && shouldQueryAcademic) {
         const CANONICAL_ACADEMIC_REFS: AcademicRow[] = [
           {
             hal_id: 'gallia-55-1998-bibracte',
@@ -1931,15 +1958,24 @@ export default {
           }
         ];
 
+        const combinedQNorm = `${qNorm} ${history
+          .filter((h: any) => h?.role === 'user' && h?.text)
+          .slice(-2)
+          .map((h: any) => String(h.text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+          .join(' ')}`;
+
         retrievedAcademic = CANONICAL_ACADEMIC_REFS.filter((item) => {
           const textBlob = `${item.theme} ${item.title} ${item.content}`.toLowerCase();
-          if (/bibracte|beuvray|gorgobina|mont-saint-vincent|eduen|autun/.test(qNorm)) {
+          if (/gaulois|cites|bataille|guerre des gaules|fouille|archeologi/.test(combinedQNorm)) {
+            return true;
+          }
+          if (/bibracte|beuvray|gorgobina|mont-saint-vincent|eduen|autun/.test(combinedQNorm)) {
             return item.theme.includes('Bibracte');
           }
-          if (/alesia|alise|auxois|bussy|altero/.test(qNorm)) {
+          if (/alesia|alise|auxois|bussy|altero/.test(combinedQNorm)) {
             return item.theme.includes('Alésia');
           }
-          if (/gergovie|merdogne|corent|arverne|chanturgue/.test(qNorm)) {
+          if (/gergovie|merdogne|corent|arverne|chanturgue/.test(combinedQNorm)) {
             return item.theme.includes('Gergovie');
           }
           return textBlob.includes(qNorm.slice(0, 12));

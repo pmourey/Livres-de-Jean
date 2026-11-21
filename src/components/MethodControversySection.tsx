@@ -43,6 +43,8 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
 }) => {
   const [selectedDomain, setSelectedDomain] = useState<'all' | DossierDomain>('all');
   const [expandedDossierId, setExpandedDossierId] = useState<string>('dossier-alesia');
+  const [openExcerptsDossierId, setOpenExcerptsDossierId] = useState<string>('dossier-alesia');
+  const [openCommentsDossierId, setOpenCommentsDossierId] = useState<string>('');
   const [activeCommentSlug, setActiveCommentSlug] = useState<string>('methode-et-controverse');
 
   const domains: Array<'all' | DossierDomain> = [
@@ -319,29 +321,29 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
             {/* Encadré distinct : Objection principale des archéologues */}
             <aside
               aria-label="Objection principale des archéologues"
-              className="lg:col-span-5 bg-amber-50/80 border-2 border-amber-300/90 rounded-lg p-5 space-y-3 shadow-2xs"
+              className="lg:col-span-5 bg-amber-50/80 dark:bg-[#2F2316] border-2 border-amber-300/90 dark:border-amber-500/45 rounded-lg p-5 space-y-3 shadow-2xs"
             >
               <div className="flex items-start gap-2.5">
-                <AlertCircle className="w-5 h-5 text-amber-800 shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-amber-800 dark:text-amber-300 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-cinzel text-[10px] uppercase tracking-widest text-amber-900 font-bold block">
+                  <span className="font-cinzel text-[10px] uppercase tracking-widest text-amber-900 dark:text-amber-300 font-bold block">
                     Point de vue contradictoire
                   </span>
-                  <h4 className="font-serif-display font-bold text-base text-amber-950">
+                  <h4 className="font-serif-display font-bold text-base text-amber-950 dark:text-[#FFF3D1]">
                     L'objection principale des archéologues
                   </h4>
                 </div>
               </div>
 
-              <p className="text-xs text-amber-950/90 leading-relaxed text-justify">
-                Pour l'archéologie universitaire et les équipes du CNRS, la limite majeure d'une démarche qui place la relecture des textes antiques en premier lieu est méthodologique : <strong>subordonner les fouilles aux textes expose au biais de confirmation</strong>.
+              <p className="text-xs text-amber-950/90 dark:text-[#F5E7C8] leading-relaxed text-justify">
+                Pour l'archéologie universitaire et les équipes du CNRS, la limite majeure d'une démarche qui place la relecture des textes antiques en premier lieu est méthodologique : <strong className="dark:text-white">subordonner les fouilles aux textes expose au biais de confirmation</strong>.
               </p>
 
-              <p className="text-xs text-amber-900/90 leading-relaxed text-justify">
+              <p className="text-xs text-amber-900/90 dark:text-[#EBDAB4] leading-relaxed text-justify">
                 Selon cette approche, les traces matérielles (stratigraphie, datations dendrochronologiques et numismatiques, typologie des armements et des fossés) doivent être analysées de manière autonome, indépendamment des hypothèses littéraires, afin d'éviter de projeter sur un paysage ce que l'on espère y retrouver.
               </p>
 
-              <div className="pt-2 border-t border-amber-200/90 text-[11px] text-amber-900 italic">
+              <div className="pt-2 border-t border-amber-200/90 dark:border-amber-500/30 text-[11px] text-amber-900 dark:text-amber-200 italic">
                 Exposer loyalement cette objection fait partie intégrante de la charte éditoriale des Éditions Émile Mourey.
               </div>
             </aside>
@@ -625,33 +627,124 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
                       </div>
 
                       {/* Contrepoint académique / archéologique */}
-                      <aside className="lg:col-span-5 bg-amber-50/75 border border-amber-300/90 rounded-lg p-5 space-y-2.5">
+                      <aside className="lg:col-span-5 bg-amber-50/75 dark:bg-[#2F2316] border border-amber-300/90 dark:border-amber-500/45 rounded-lg p-5 space-y-2.5">
                         <div className="flex items-start gap-2">
-                          <Scale className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
-                          <h4 className="font-serif-display font-bold text-sm text-amber-950">
+                          <Scale className="w-4 h-4 text-amber-800 dark:text-amber-300 shrink-0 mt-0.5" />
+                          <h4 className="font-serif-display font-bold text-sm text-amber-950 dark:text-[#FFF3D1]">
                             {dossier.academicCounterpointTitle}
                           </h4>
                         </div>
-                        <p className="text-xs text-amber-950/90 leading-relaxed text-justify">
+                        <p className="text-xs text-amber-950/90 dark:text-[#F5E7C8] leading-relaxed text-justify">
                           {dossier.academicCounterpoint}
                         </p>
                       </aside>
                     </div>
 
-                    {/* Sources clés */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className="text-[11px] font-semibold text-stone-500 inline-flex items-center gap-1">
-                        <Layers className="w-3.5 h-3.5" />
-                        Sources & repères :
-                      </span>
-                      {dossier.keySources.map((src, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[11px] bg-stone-100 text-stone-700 border border-stone-200 px-2.5 py-0.5 rounded-full"
+                    {/* Panneau détaillé : Extraits littéraux des livres d'Émile Mourey */}
+                    {dossier.bookExcerpts && dossier.bookExcerpts.length > 0 && (
+                      <div className="border border-stone-200 dark:border-[#4A3A2C] rounded-lg overflow-hidden bg-[#FAF8F5] dark:bg-[#1E1712]">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenExcerptsDossierId(
+                              openExcerptsDossierId === dossier.id ? '' : dossier.id
+                            )
+                          }
+                          className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left bg-[#F5F1E9] dark:bg-[#2A2018] hover:bg-stone-200/70 dark:hover:bg-[#35281E] transition-colors cursor-pointer"
                         >
-                          {src}
-                        </span>
-                      ))}
+                          <span className="inline-flex items-center gap-2 text-xs font-bold text-[#2B1810] dark:text-[#F5E8D3]">
+                            <Quote className="w-4 h-4 text-[#8B1E2D] dark:text-[#E3848F] shrink-0" />
+                            <span>
+                              Extraits littéraux des ouvrages d’Émile Mourey ({dossier.bookExcerpts.length})
+                            </span>
+                          </span>
+                          <span className="text-[11px] font-medium text-[#8B1E2D] dark:text-[#E3848F] inline-flex items-center gap-1 shrink-0">
+                            <span>{openExcerptsDossierId === dossier.id ? 'Masquer' : 'Lire les extraits'}</span>
+                            {openExcerptsDossierId === dossier.id ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </span>
+                        </button>
+
+                        {openExcerptsDossierId === dossier.id && (
+                          <div className="p-4 sm:p-5 space-y-4 border-t border-stone-200 dark:border-[#4A3A2C]">
+                            {dossier.bookExcerpts.map((ex, exIdx) => {
+                              const targetBook = books.find((b) => b.id === ex.bookId);
+                              return (
+                                <div
+                                  key={exIdx}
+                                  className="bg-white dark:bg-[#241C16] border border-stone-200 dark:border-[#423428] rounded-lg p-4 space-y-2 shadow-2xs"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="font-serif-display font-bold text-sm text-[#2B1810] dark:text-[#F7EBDA]">
+                                      {ex.heading}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        targetBook && onSelectBook
+                                          ? onSelectBook(targetBook)
+                                          : onNavigateCatalog()
+                                      }
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#8B1E2D] dark:text-[#E99AA3] hover:underline cursor-pointer"
+                                    >
+                                      <BookOpen className="w-3 h-3 shrink-0" />
+                                      <span>
+                                        {ex.bookTitle}
+                                        {ex.tome ? ` (${ex.tome})` : ''} · {ex.page}
+                                      </span>
+                                    </button>
+                                  </div>
+                                  <blockquote className="font-serif-display italic text-xs sm:text-sm text-stone-800 dark:text-[#EADCC6] leading-relaxed border-l-3 border-[#8B1E2D] pl-3.5 text-justify">
+                                    {ex.quote}
+                                  </blockquote>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Sources & repères officiels et universitaires (cliquables) */}
+                    <div className="space-y-2 pt-1">
+                      <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300 inline-flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-[#8B1E2D]" />
+                        Sources officielles, universitaires & repères documentaires :
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {dossier.keySources.map((src, idx) =>
+                          src.url ? (
+                            <a
+                              key={idx}
+                              href={src.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={src.institution ? `${src.label} — ${src.institution}` : src.label}
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full border transition-colors ${
+                                src.kind === 'scientific'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-600/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                                  : 'bg-stone-100 dark:bg-[#2F251D] text-stone-800 dark:text-[#EFE2CE] border-stone-300 dark:border-[#4F3F31] hover:bg-stone-200 dark:hover:bg-[#3B2F24]'
+                              }`}
+                            >
+                              <span>{src.label}</span>
+                              {src.institution && (
+                                <span className="opacity-75 hidden sm:inline">· {src.institution}</span>
+                              )}
+                              <ExternalLink className="w-3 h-3 shrink-0 opacity-80" />
+                            </a>
+                          ) : (
+                            <span
+                              key={idx}
+                              className="text-[11px] bg-stone-100 text-stone-700 border border-stone-200 px-2.5 py-1 rounded-full"
+                            >
+                              {src.label}
+                            </span>
+                          )
+                        )}
+                      </div>
                     </div>
 
                     {/* Ouvrages liés + Actions */}
@@ -704,14 +797,39 @@ export const MethodControversySection: React.FC<MethodControversySectionProps> =
 
                         <button
                           type="button"
-                          onClick={() => handleSelectDossierForComment(dossier.slug)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#8B1E2D] hover:bg-[#721824] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                          onClick={() =>
+                            setOpenCommentsDossierId(
+                              openCommentsDossierId === dossier.id ? '' : dossier.id
+                            )
+                          }
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                            openCommentsDossierId === dossier.id
+                              ? 'bg-stone-800 text-amber-300 border border-amber-500/40'
+                              : 'bg-[#8B1E2D] hover:bg-[#721824] text-white'
+                          }`}
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>Commenter ce dossier</span>
+                          <span>
+                            {openCommentsDossierId === dossier.id
+                              ? 'Masquer les commentaires'
+                              : 'Commentaires des lecteurs'}
+                          </span>
                         </button>
                       </div>
                     </div>
+
+                    {/* Commentaires dédiés directement intégrés au dossier */}
+                    {openCommentsDossierId === dossier.id && (
+                      <div className="pt-4 border-t border-stone-200 dark:border-[#4A3A2C]">
+                        <CommentsSection
+                          targetSlug={dossier.slug}
+                          customerToken={customerToken}
+                          defaultAuthorName={defaultAuthorName}
+                          onNavigateAccount={onNavigateAccount || onNavigateCatalog}
+                          onNavigateLegal={onNavigateLegal}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </article>
