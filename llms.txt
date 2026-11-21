@@ -1,0 +1,44 @@
+# Éditions Émile Mourey — Librairie Historique & Contre-Enquêtes
+
+> Site officiel des Éditions Émile Mourey (auto-édition indépendante, Le Creusot, Bourgogne, France — SIREN 418 122 883). Présentation des 12 ouvrages historiques d'Émile Mourey (officier saint-cyrien, historien indépendant), de ses 7 dossiers de contre-enquêtes documentés (Guerre des Gaules, Bibracte, Alésia, Gergovie, art roman bourguignon, origines du christianisme et de l'islam) et de ses 559 articles publiés sur AgoraVox.
+
+## Identité de l'auteur & Démarche
+- **Auteur** : Émile Mourey (ancien officier de Saint-Cyr, historien indépendant, résidant en Bourgogne / Saône-et-Loire).
+- **Méthode** : Retraduction littérale des textes antiques (*De Bello Gallico* de Jules César, Table de Peutinger, Flavius Josèphe, Chronique de Tabari), analyse tactique et topographique militaire sur le terrain, et confrontation documentaire avec les publications archéologiques officielles (CNRS, revue *Gallia* 55, mission franco-allemande d'Alésia, INRAP / RACF).
+- **Charte éditoriale** : Chaque dossier présente loyalement les thèses d'Émile Mourey en regard du consensus archéologique et universitaire officiel.
+- **Profil AgoraVox officiel** : https://www.agoravox.fr/auteur/emile-mourey (559 articles, 22 784 commentaires archivés).
+
+## Pages principales du site
+- [Catalogue complet des 12 ouvrages](https://pmourey.github.io/Livres-de-Jean/)
+- [Méthode et Controverse — 7 dossiers d'études avec extraits et sources CNRS/Persée](https://pmourey.github.io/Livres-de-Jean/?vue=methode)
+- [Assistant Documentaire IA (RAG sur 6 937 passages PDF + 29 370 extraits AgoraVox + 740 publications CNRS/HAL)](https://pmourey.github.io/Livres-de-Jean/?vue=assistant)
+- [Biographie de l'Auteur & Travaux Historiques](https://pmourey.github.io/Livres-de-Jean/?vue=auteur)
+- [Livraison & Paiement](https://pmourey.github.io/Livres-de-Jean/?vue=livraison)
+- [Charte éditoriale & Mentions légales](https://pmourey.github.io/Livres-de-Jean/?vue=charte-legale)
+
+## Bibliographie complète (12 ouvrages & coffrets)
+- [Histoire de Gergovie — Tome 1](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-gergovie-tome-1) : Contre-enquête topographique et militaire sur le siège de Gergovie (52 av. J.-C.), contestant le plateau de Merdogne au profit de l'éperon du Crest.
+- [Histoire de Bibracte — Tome 2 : Le Bouclier Éduen](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-bibracte-tome-2-bouclier-eduen) : Localisation de Bibracte au Mont-Saint-Vincent, réinterprétation du mont Beuvray en Gorgobina (oppidum militaire) et analyse du siège d'Alésia (montagne de Bussy).
+- [Histoire de Bibracte — Tome 3 : L'Épée Flamboyante](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-bibracte-tome-3-epee-flamboyante) : Campagnes militaires de la Guerre des Gaules, rôle stratégique du mont Beuvray et géographie éduenne.
+- [Histoire de Bibracte — Tome 4 : Dieu Rayonnant](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-bibracte-tome-4-dieu-rayonnant) : Sanctuaire de Bibracte, judéo-druidisme et lecture iconographique de l'art roman bourguignon (Vézelay, Autun, Chalon-sur-Saône).
+- [Histoire de Bibracte — Tome 5 : Dieu Caché](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-bibracte-tome-5-dieu-cache) : Suite de l'enquête sur la continuité spirituelle entre Gaule antique, monde juif et sculptures romanes bourguignonnes.
+- [La Gaule en héritage — 1ère partie](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-gaule-en-heritage) : Synthèse sur Bibracte au Mont-Saint-Vincent, Gorgobina au mont Beuvray, la bataille de Magetobriga à Mesvres, la Table de Peutinger et dialogue avec le bilan CNRS *Gallia* 55 (1998).
+- [Histoire du Christ — Tome 1](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-christ-tome-1) : Enquête croisée sur les sources évangéliques, le droit romain, les manuscrits de Qumrân (essénisme) et les axes fluviaux vers la Gaule.
+- [Histoire du Christ — Tome 2](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-christ-tome-2) : Prolongement historique sur les origines chrétiennes et leur réception en Gaule bourguignonne.
+- [Histoire de Mahomet — Tome 1](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-mahomet-tome-1) : Lecture structurale et politico-militaire comparée du Coran, de la Bible et des chroniques de Tabari.
+- [Histoire de Mahomet — Tome 2](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-mahomet-tome-2) : Suite de l'analyse des textes fondateurs et de la chronique de Tabari.
+- [Coffret Intégrale Histoire de Bibracte](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-coffret-integrale-bibracte) : Réédition groupée du cycle complet sur Bibracte et la Gaule éduenne.
+- [Pack Duo Histoire du Christ (Tomes 1 & 2)](https://pmourey.github.io/Livres-de-Jean/?livre=mourey-duo-histoire-du-christ) : Réunion des deux tomes consacrés aux origines chrétiennes.
+
+## Synthèse des 7 dossiers de contre-enquêtes (Thèse vs Consensus académique)
+1. **Alésia (52 av. J.-C.)** : Relecture de *altero die* (César, *BG* VII) décalant la bataille de cavalerie vers Noyers-sur-Serein et l'assaut de Vercassivellaunos sur la montagne de Bussy (422 m). *Contrepoint officiel* : fouilles franco-allemandes d'Alise-Sainte-Reine (M. Reddé & S. von Schnurbein, *CRAI* 1995, Persée).
+2. **Bibracte & Mont Beuvray** : Bibracte située au Mont-Saint-Vincent (*itinere converso* + Table de Peutinger), bataille des Helvètes à Sanvignes, mont Beuvray identifié à Gorgobina (oppidum militaire). *Contrepoint officiel* : bilan CNRS *Gallia* 55 (1998) et Centre archéologique européen du Mont Beuvray (V. Guichard, C. Goudineau).
+3. **Gergovie (52 av. J.-C.)** : Contestation du plateau de Merdogne au profit de l'éperon du Crest en Auvergne. *Contrepoint officiel* : fouilles INRAP / CNRS (Y. Deberge, M. Poux, *RACF* / OpenEdition).
+4. **Art roman bourguignon & Judéo-druidisme** : Lecture symbolique des chapiteaux de Chalon-sur-Saône, d'Autun et du tympan de Vézelay. *Contrepoint officiel* : histoire de l'art médiéval bénédictin et clunisien (CNRS / BUCEMA).
+5. **Histoire du Christ** : Confrontation des Évangiles au droit pénal romain et aux manuscrits de Qumrân. *Contrepoint officiel* : exégèse historico-critique contemporaine.
+6. **Histoire de Mahomet** : Lecture structurale des figures prophétiques et des chroniques de Tabari. *Contrepoint officiel* : islamologie historique et philologie (CNRS / EPHE).
+7. **Métaphysique & AgoraVox** : 20 ans de débats publics sur AgoraVox (559 articles, 22 784 commentaires, 1 377 intervenants).
+
+## Ressources techniques & documentation ouverte
+- [Sitemap XML](https://pmourey.github.io/Livres-de-Jean/sitemap.xml)
+- [Rapport d'audit technique IA & Cloudflare D1 (GitHub)](https://github.com/pmourey/Livres-de-Jean/blob/main/docs/rapport_audit_ia_cloudflare.md)

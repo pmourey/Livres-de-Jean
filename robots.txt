@@ -1,4 +1,17 @@
 User-agent: *
 Allow: /
 
+# Crawlers IA & moteurs de recherche documentaire autorisés sur les pages publiques
+User-agent: Googlebot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
 Sitemap: https://pmourey.github.io/Livres-de-Jean/sitemap.xml
