@@ -4,6 +4,7 @@ import { AUTHOR_INFO } from '../data/initialData';
 import { InvoiceView } from './InvoiceView';
 import { ShippingLabelView } from './ShippingLabelView';
 import { AdminModerationPanel } from './AdminModerationPanel';
+import { AdminAiLogsPanel } from './AdminAiLogsPanel';
 import { PAYMENTS_API_BASE } from '../config/commerce';
 import { 
   ShieldCheck, Package, DollarSign, Truck, AlertTriangle, Check, 
@@ -26,7 +27,7 @@ interface AdminDashboardProps {
   onToggleMaintenanceMode?: (enabled: boolean) => void;
   maintenanceMessage?: string;
   onUpdateMaintenanceMessage?: (message: string) => void;
-  initialTab?: 'orders' | 'books' | 'claims' | 'moderation';
+  initialTab?: 'orders' | 'books' | 'claims' | 'moderation' | 'ai_logs';
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -82,7 +83,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'books' | 'claims' | 'moderation'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'orders' | 'books' | 'claims' | 'moderation' | 'ai_logs'>(initialTab);
   React.useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
@@ -424,6 +425,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               Modération
+            </button>
+            <button
+              onClick={() => setActiveTab('ai_logs')}
+              className={`px-3 py-1.5 rounded font-medium transition-colors ${
+                activeTab === 'ai_logs' ? 'bg-amber-600 text-white' : 'text-stone-300 hover:text-white'
+              }`}
+            >
+              Journal IA (RAG)
             </button>
           </div>
 
@@ -1176,6 +1185,9 @@ GMAIL_USER = "philippe.mourey@gmail.com"`}
 
       {/* TAB 4: MODERATION (/admin/moderation) */}
       {activeTab === 'moderation' && <AdminModerationPanel />}
+
+      {/* TAB 5: AI QUERY LOGS & RAG GAPS */}
+      {activeTab === 'ai_logs' && <AdminAiLogsPanel />}
 
       {/* Add Book Modal */}
       {showAddBookModal && (

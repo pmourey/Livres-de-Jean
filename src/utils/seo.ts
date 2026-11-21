@@ -86,8 +86,27 @@ export function buildAuthorEntity(baseUrl: string) {
     '@id': `${baseUrl}#author`,
     name: 'Émile Mourey',
     jobTitle: AUTHOR_INFO.role,
+    description:
+      "Historien indépendant et ancien officier de Saint-Cyr, auteur d'une collection de 12 ouvrages sur la Guerre des Gaules (Bibracte, Alésia, Gergovie), l'art roman bourguignon et les textes sacrés, ainsi que de 559 articles publiés sur AgoraVox.",
     award: AUTHOR_INFO.decorations,
-    url: getViewCanonicalUrl('author', baseUrl)
+    url: getViewCanonicalUrl('author', baseUrl),
+    sameAs: [
+      'https://www.agoravox.fr/auteur/emile-mourey',
+      'https://github.com/pmourey/Livres-de-Jean'
+    ],
+    knowsAbout: [
+      'Bibracte',
+      'Mont-Saint-Vincent',
+      'Mont Beuvray',
+      'Gorgobina',
+      'Alésia',
+      'Gergovie',
+      'Guerre des Gaules',
+      'De Bello Gallico',
+      'Table de Peutinger',
+      'Art roman bourguignon',
+      'Manuscrits de Qumrân'
+    ]
   };
 }
 
@@ -315,6 +334,36 @@ export function buildCatalogGraphJsonLd(
           url: getBookCanonicalUrl(book.id, baseUrl),
           item: buildBookStructuredData(book, baseUrl, isMaintenanceMode, false)
         }))
+      },
+      {
+        '@type': 'FAQPage',
+        '@id': `${baseUrl}#faq`,
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'Où Émile Mourey situe-t-il Bibracte et quel rôle attribue-t-il au mont Beuvray ?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Dans Histoire de Bibracte et La Gaule en héritage, Émile Mourey situe la capitale éduenne de Bibracte au Mont-Saint-Vincent (Saône-et-Loire) en s'appuyant sur l'expression itinere converso de César et la Table de Peutinger, et identifie le mont Beuvray à l'oppidum militaire de Gorgobina. L'archéologie officielle (CNRS, revue Gallia 55) maintient l'identification de Bibracte au mont Beuvray."
+            }
+          },
+          {
+            '@type': 'Question',
+            name: "Quelle est la thèse d'Émile Mourey sur le siège d'Alésia et l'expression altero die ?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Émile Mourey relit altero die (« le surlendemain ») dans le livre VII du De Bello Gallico pour décaler la bataille de cavalerie vers Noyers-sur-Serein et situer l'assaut principal de Vercassivellaunos sur la montagne de Bussy (422 m), tout en discutant les fouilles franco-allemandes d'Alise-Sainte-Reine (M. Reddé & S. von Schnurbein, CRAI 1995)."
+            }
+          },
+          {
+            '@type': 'Question',
+            name: "Où Émile Mourey localise-t-il Gergovie par rapport au consensus archéologique ?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Dans Histoire de Gergovie (Tome 1), Émile Mourey conteste le plateau officiel de Merdogne au profit de l'éperon du Crest en Auvergne. Les fouilles INRAP et CNRS (Yann Deberge, Matthieu Poux, RACF) confortent l'identification du plateau de Gergovie-Merdogne."
+            }
+          }
+        ]
       }
     ]
   };
