@@ -1419,7 +1419,7 @@ export default {
       let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
       let indexedChunksCount = cachedIndexCounts?.chunks || 8266;
       let indexedAgoravoxCount = cachedIndexCounts?.agoravox || 29370;
-      let indexedAcademicCount = cachedIndexCounts?.academic || 746;
+      let indexedAcademicCount = cachedIndexCounts?.academic || 780;
       let d1QuotaExceeded = false;
 
       if (env.DB) {

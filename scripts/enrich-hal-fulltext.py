@@ -18,9 +18,15 @@ import urllib.parse
 HAL_API = "https://api.archives-ouvertes.fr/search/"
 
 QUERIES = [
-    ("Bibracte & Éduens", '((Bibracte OR "Mont Beuvray") AND (fouille OR rempart OR oppidum OR amphore))', 12),
-    ("Alésia & Siège de 52 av. J.-C.", '((Alesia OR "Alise-Sainte-Reine") AND (fouille OR siege OR circonvallation OR camp OR oppidum))', 10),
-    ("Gergovie & Arvernes", '((Gergovie OR Merdogne OR Corent) AND (fouille OR oppidum OR camp OR fortification))', 10),
+    ("Bibracte & Éduens", '((Bibracte OR "Mont Beuvray" OR Gorgobina) AND (fouille OR rempart OR oppidum OR amphore OR Eduens))', 20),
+    ("Alésia & Siège de 52 av. J.-C.", '((Alesia OR "Alise-Sainte-Reine" OR "mont Auxois") AND (fouille OR siege OR circonvallation OR camp OR oppidum))', 16),
+    ("Gergovie & Arvernes", '((Gergovie OR Merdogne OR Corent OR Gondole) AND (fouille OR oppidum OR camp OR fortification OR Arvernes))', 16),
+    ("Guerre des Gaules & Légions", '(("Guerre des Gaules" OR "De Bello Gallico" OR Vercingetorix OR Cesar) AND (Gaule OR bataille OR oppidum OR siege))', 15),
+    ("Bourgogne antique, Autun & Chalon", '((Augustodunum OR Cabillonum OR "Mont-Saint-Vincent" OR "Chalon-sur-Saone") AND (antique OR romain OR Eduens OR fouille))', 12),
+    ("Table de Peutinger & Voies romaines", '(("Table de Peutinger" OR "voies romaines") AND (Gaule OR itineraire OR romain OR Bourgogne))', 12),
+    ("Art roman bourguignon (Vézelay, Autun, Chalon)", '((Vezelay OR Autun OR "Chalon-sur-Saone") AND (roman OR tympan OR chapiteau OR sculpture OR cathedrale))', 10),
+    ("Esséniens, Qumrân & Judéo-christianisme", '((Qumran OR Esseniens OR "mer Morte" OR "judeo-christianisme") AND (manuscrit OR texte OR histoire OR evangile))', 14),
+    ("Origines de l'islam, Coran & Tabari", '((Coran OR Tabari OR "origines de l\'islam" OR Mecque) AND (historiographie OR manuscrit OR philologie OR histoire))', 14),
 ]
 
 OUT_SQL = os.path.join(
