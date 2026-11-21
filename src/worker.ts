@@ -1553,7 +1553,9 @@ export default {
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
       const requestedScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox' | 'academic'
-      const useGoogleSearch = Boolean(body?.useGoogleSearch);
+      // Google Search Grounding désactivé par défaut (préserve le quota Free Tier Google AI Studio ;
+      // le corpus complet D1 8 266 passages PDF + 29 370 AgoraVox + 746 CNRS/HAL est utilisé)
+      const useGoogleSearch = false;
       const history = Array.isArray(body?.history) ? body.history.slice(-10) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
@@ -2179,8 +2181,8 @@ export default {
             break;
           }
           lastError = result.error || lastError;
-          // Only stop immediately on auth/quota errors (401/403/429)
-          if (result.status === 401 || result.status === 403 || result.status === 429) {
+          // Only stop immediately on auth errors (401/403); on 429 quota, try the next fallback model
+          if (result.status === 401 || result.status === 403) {
             return json({ error: lastError }, { status: result.status });
           }
         }

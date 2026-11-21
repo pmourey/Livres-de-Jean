@@ -399,7 +399,6 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   const messages: ChatMessage[] = activeSession?.messages || [];
 
   const [selectedScope, setSelectedScope] = useState<string>(activeSession?.scope || 'all');
-  const [useGoogleSearch, setUseGoogleSearch] = useState<boolean>(false);
   const [questionInput, setQuestionInput] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -760,7 +759,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             selectedScope !== 'academic'
               ? selectedScope
               : undefined,
-          useGoogleSearch,
+          useGoogleSearch: false,
           history: currentHistory,
           fallbackContext: buildFallbackContext(q)
         })
@@ -1170,20 +1169,6 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                     ))}
                   </optgroup>
                 </select>
-
-                <button
-                  type="button"
-                  onClick={() => setUseGoogleSearch((prev) => !prev)}
-                  title="Activer ou désactiver la recherche Web Google en temps réel en complément de la base Cloudflare D1"
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors cursor-pointer ${
-                    useGoogleSearch
-                      ? 'bg-sky-700 text-white border-sky-700 shadow-2xs'
-                      : 'bg-[#FAF8F5] text-stone-700 border-stone-300 hover:bg-stone-100'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5 shrink-0" />
-                  <span>{useGoogleSearch ? 'Google Search : ON' : 'Google Search : OFF'}</span>
-                </button>
 
                 {activeSession && activeSession.messages.length > 0 && (
                   <button
