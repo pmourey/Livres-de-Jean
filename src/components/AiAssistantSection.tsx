@@ -25,7 +25,10 @@ import {
   Copy,
   Check,
   ArrowLeft,
-  GraduationCap
+  GraduationCap,
+  Globe,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 
 interface AiReference {
@@ -52,17 +55,27 @@ interface AcademicReference {
   url: string;
 }
 
+interface WebReference {
+  title: string;
+  url: string;
+}
+
 interface ChatMessage {
   id: string;
+  queryLogId?: number | null;
   role: 'user' | 'model';
   text: string;
   references?: AiReference[];
   agoravoxReferences?: AgoraVoxReference[];
   academicReferences?: AcademicReference[];
+  webReferences?: WebReference[];
   mode?: 'd1_literal' | 'catalog_synthesis';
   indexedChunksUsed?: number;
   indexedAgoravoxUsed?: number;
   indexedAcademicUsed?: number;
+  webSourcesUsed?: number;
+  googleSearchEnabled?: boolean;
+  feedback?: 1 | -1 | 0;
   model?: string;
   timestamp: string;
 }
@@ -386,6 +399,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   const messages: ChatMessage[] = activeSession?.messages || [];
 
   const [selectedScope, setSelectedScope] = useState<string>(activeSession?.scope || 'all');
+  const [useGoogleSearch, setUseGoogleSearch] = useState<boolean>(false);
   const [questionInput, setQuestionInput] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -646,6 +660,32 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
     return [...bookContexts, ...matchingDossiers].slice(0, 12);
   };
 
+  const handleFeedback = async (msgId: string, queryLogId: number | null | undefined, value: 1 | -1) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? {
+              ...s,
+              messages: s.messages.map((m) => (m.id === msgId ? { ...m, feedback: value } : m))
+            }
+          : s
+      )
+    );
+    if (!queryLogId || !customerToken) return;
+    try {
+      await fetch(`${PAYMENTS_API_BASE}/api/ai/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${customerToken}`
+        },
+        body: JSON.stringify({ queryLogId, feedback: value })
+      });
+    } catch {
+      // non-blocking
+    }
+  };
+
   const handleAsk = async (questionOverride?: string) => {
     const q = (questionOverride ?? questionInput).trim();
     if (!q || isAsking) return;
@@ -720,6 +760,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             selectedScope !== 'academic'
               ? selectedScope
               : undefined,
+          useGoogleSearch,
           history: currentHistory,
           fallbackContext: buildFallbackContext(q)
         })
@@ -741,15 +782,20 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
 
       const aiMsg: ChatMessage = {
         id: `m-${Date.now()}`,
+        queryLogId: data.queryLogId ?? null,
         role: 'model',
         text: data.answer,
         references: Array.isArray(data.references) ? data.references : [],
         agoravoxReferences: Array.isArray(data.agoravoxReferences) ? data.agoravoxReferences : [],
         academicReferences: Array.isArray(data.academicReferences) ? data.academicReferences : [],
+        webReferences: Array.isArray(data.webReferences) ? data.webReferences : [],
         mode: data.mode,
         indexedChunksUsed: data.indexedChunksUsed,
         indexedAgoravoxUsed: data.indexedAgoravoxUsed,
         indexedAcademicUsed: data.indexedAcademicUsed,
+        webSourcesUsed: data.webSourcesUsed,
+        googleSearchEnabled: Boolean(data.googleSearchEnabled),
+        feedback: 0,
         model: data.model,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
@@ -1125,6 +1171,20 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                   </optgroup>
                 </select>
 
+                <button
+                  type="button"
+                  onClick={() => setUseGoogleSearch((prev) => !prev)}
+                  title="Activer ou désactiver la recherche Web Google en temps réel en complément de la base Cloudflare D1"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors cursor-pointer ${
+                    useGoogleSearch
+                      ? 'bg-sky-700 text-white border-sky-700 shadow-2xs'
+                      : 'bg-[#FAF8F5] text-stone-700 border-stone-300 hover:bg-stone-100'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>{useGoogleSearch ? 'Google Search : ON' : 'Google Search : OFF'}</span>
+                </button>
+
                 {activeSession && activeSession.messages.length > 0 && (
                   <button
                     type="button"
@@ -1319,7 +1379,8 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                         {msg.role === 'model' &&
                           ((msg.references && msg.references.length > 0) ||
                             (msg.agoravoxReferences && msg.agoravoxReferences.length > 0) ||
-                            (msg.academicReferences && msg.academicReferences.length > 0)) && (
+                            (msg.academicReferences && msg.academicReferences.length > 0) ||
+                            (msg.webReferences && msg.webReferences.length > 0)) && (
                             <div className="pt-3 border-t border-stone-100 space-y-2.5">
                               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
                                 <span className="font-semibold text-stone-700 flex items-center gap-1">
@@ -1328,7 +1389,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                                 </span>
                                 <span className="font-mono text-[10px] bg-stone-100 px-2 py-0.5 rounded">
                                   {msg.mode === 'd1_literal'
-                                    ? `${msg.indexedChunksUsed || 0} liv. · ${msg.indexedAgoravoxUsed || 0} AgoraVox · ${msg.indexedAcademicUsed || 0} CNRS/HAL`
+                                    ? `${msg.indexedChunksUsed || 0} liv. · ${msg.indexedAgoravoxUsed || 0} AgoraVox · ${msg.indexedAcademicUsed || 0} CNRS/HAL${msg.webSourcesUsed ? ` · ${msg.webSourcesUsed} Web` : ''}`
                                     : 'Synthèse catalogue & dossiers'}
                                 </span>
                               </div>
@@ -1404,8 +1465,64 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                                   ))}
                                 </div>
                               )}
+
+                              {msg.webReferences && msg.webReferences.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-0.5">
+                                  {msg.webReferences.map((web, idx) => (
+                                    <a
+                                      key={`${web.url}-${idx}`}
+                                      href={web.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-950 border border-sky-300 rounded text-[11px] font-medium transition-colors"
+                                      title={web.url}
+                                    >
+                                      <Globe className="w-3 h-3 shrink-0 text-sky-700" />
+                                      <span className="max-w-[260px] truncate">
+                                        Web — {web.title}
+                                      </span>
+                                      <ExternalLink className="w-3 h-3 shrink-0 text-sky-700" />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
+
+                        {/* Barre de retour lecteur (Levier 1 RAG : signaler la qualité pour enrichir le corpus) */}
+                        {msg.role === 'model' && (
+                          <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2 text-[11px] text-stone-500">
+                            <span>Cette réponse vous a-t-elle été utile ?</span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => void handleFeedback(msg.id, msg.queryLogId, 1)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                                  msg.feedback === 1
+                                    ? 'bg-emerald-100 text-emerald-900 border-emerald-400 font-semibold'
+                                    : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                                }`}
+                                title="Réponse utile et bien sourcée"
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                                <span>Utile</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleFeedback(msg.id, msg.queryLogId, -1)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                                  msg.feedback === -1
+                                    ? 'bg-rose-100 text-rose-900 border-rose-400 font-semibold'
+                                    : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                                }`}
+                                title="Signaler un manque de sources pour enrichir la base documentaire"
+                              >
+                                <ThumbsDown className="w-3 h-3" />
+                                <span>À enrichir</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

@@ -154,16 +154,29 @@ async function ensureTables(db?: D1Database) {
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS academic_chunks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        hal_id TEXT NOT NULL UNIQUE,
         doc_type TEXT NOT NULL DEFAULT 'article',
-        theme TEXT NOT NULL DEFAULT '',
         title TEXT NOT NULL,
         authors TEXT NOT NULL DEFAULT '',
         published_year TEXT DEFAULT '',
         journal_or_institution TEXT DEFAULT '',
-        source_url TEXT NOT NULL,
-        pdf_url TEXT DEFAULT '',
+        source_url TEXT NOT NULL UNIQUE,
+        theme TEXT DEFAULT '',
         content TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS ai_query_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT NOT NULL,
+        scope TEXT NOT NULL DEFAULT 'all',
+        use_google_search INTEGER NOT NULL DEFAULT 0,
+        chunks_used INTEGER NOT NULL DEFAULT 0,
+        agoravox_used INTEGER NOT NULL DEFAULT 0,
+        academic_used INTEGER NOT NULL DEFAULT 0,
+        web_sources_used INTEGER NOT NULL DEFAULT 0,
+        model TEXT DEFAULT '',
+        feedback INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
@@ -1540,6 +1553,7 @@ export default {
       const question = String(body?.question || '').trim();
       const bookIdFilter = String(body?.bookId || '').trim();
       const requestedScope = String(body?.sourceScope || (bookIdFilter ? 'books' : 'all')).trim(); // 'all' | 'books' | 'agoravox' | 'academic'
+      const useGoogleSearch = Boolean(body?.useGoogleSearch);
       const history = Array.isArray(body?.history) ? body.history.slice(-10) : [];
       const fallbackContext = Array.isArray(body?.fallbackContext) ? body.fallbackContext.slice(0, 6) : [];
 
@@ -1585,7 +1599,6 @@ export default {
       };
       type AcademicRow = {
         id?: number;
-        hal_id: string;
         doc_type: string;
         theme: string;
         title: string;
@@ -1593,7 +1606,6 @@ export default {
         published_year: string;
         journal_or_institution: string;
         source_url: string;
-        pdf_url: string;
         content: string;
       };
 
@@ -1782,11 +1794,11 @@ export default {
 
             if (acadPrecisionQuery) {
               const acadAndRes = await env.DB.prepare(
-                `SELECT ac.id, ac.hal_id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.pdf_url, ac.content
+                `SELECT ac.id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.content
                  FROM academic_chunks_fts fts
                  JOIN academic_chunks ac ON ac.id = fts.rowid
                  WHERE academic_chunks_fts MATCH ?
-                 ORDER BY CASE WHEN ac.hal_id LIKE 'gallia-%' OR ac.hal_id LIKE 'crai-%' OR ac.hal_id LIKE 'inrap-%' OR ac.hal_id LIKE 'bibracte-%' THEN 0 ELSE 1 END, rank
+                 ORDER BY CASE WHEN ac.source_url LIKE '%persee.fr%' OR ac.source_url LIKE '%bibracte.fr%' OR ac.source_url LIKE '%openedition.org%' THEN 0 ELSE 1 END, rank
                  LIMIT 6`
               )
                 .bind(acadPrecisionQuery)
@@ -1802,11 +1814,11 @@ export default {
 
             if (acadMatches.length < 5) {
               const acadOrRes = await env.DB.prepare(
-                `SELECT ac.id, ac.hal_id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.pdf_url, ac.content
+                `SELECT ac.id, ac.doc_type, ac.theme, ac.title, ac.authors, ac.published_year, ac.journal_or_institution, ac.source_url, ac.content
                  FROM academic_chunks_fts fts
                  JOIN academic_chunks ac ON ac.id = fts.rowid
                  WHERE academic_chunks_fts MATCH ?
-                 ORDER BY rank
+                 ORDER BY CASE WHEN ac.source_url LIKE '%persee.fr%' OR ac.source_url LIKE '%bibracte.fr%' OR ac.source_url LIKE '%openedition.org%' THEN 0 ELSE 1 END, rank
                  LIMIT 8`
               )
                 .bind(ftsOrQuery)
@@ -1905,7 +1917,6 @@ export default {
       if (retrievedAcademic.length === 0 && shouldQueryAcademic) {
         const CANONICAL_ACADEMIC_REFS: AcademicRow[] = [
           {
-            hal_id: 'gallia-55-1998-bibracte',
             doc_type: 'Rapport de fouilles',
             theme: 'Bibracte & Éduens',
             title: "Les fouilles du mont Beuvray : rapport biennal (1984-1995) — Dossier Bibracte",
@@ -1913,12 +1924,10 @@ export default {
             published_year: '1998',
             journal_or_institution: 'Gallia - Archéologie de la France antique, tome 55 (CNRS Éditions)',
             source_url: 'https://www.persee.fr/issue/galia_0016-4119_1998_num_55_1',
-            pdf_url: '',
             content:
               "Synthèse officielle CNRS des fouilles du mont Beuvray (1984-1995) : remparts à murus gallicus (Porte du Rebout), ateliers métallurgiques, quartier artisanal du Champlain, domus du Parc aux Chevaux, habitats de la Pâture du Couvent, faciès monétaire éduen et des dizaines de milliers de fragments d'amphores Dressel 1 (Ier s. av. J.-C.), fondant l'identification académique de Bibracte au mont Beuvray avant le transfert à Augustodunum (Autun)."
           },
           {
-            hal_id: 'bibracte-goudineau-peyre-1993',
             doc_type: 'Ouvrage scientifique',
             theme: 'Bibracte & Éduens',
             title: 'Bibracte et les Éduens : À la découverte d’un peuple gaulois',
@@ -1926,12 +1935,10 @@ export default {
             published_year: '1993',
             journal_or_institution: 'Éditions Errance / Centre archéologique européen du Mont Beuvray',
             source_url: 'https://www.bibracte.fr/la-recherche',
-            pdf_url: '',
             content:
               "Ouvrage de référence du professeur au Collège de France Christian Goudineau et de Christian Peyre synthétisant l'histoire de la confédération éduenne, l'organisation urbaine de l'oppidum du mont Beuvray (200 hectares fortifiés), les relations diplomatiques avec Rome et la chronologie de la fin de La Tène D."
           },
           {
-            hal_id: 'crai-redde-schnurbein-alesia-1997',
             doc_type: 'Rapport de fouilles',
             theme: 'Alésia & Siège de 52 av. J.-C.',
             title: 'Les nouvelles fouilles d’Alésia (1991-1995) : fortifications romaines de circonvallation et contrevallation à Alise-Sainte-Reine',
@@ -1939,12 +1946,10 @@ export default {
             published_year: '1997',
             journal_or_institution: "Comptes rendus des séances de l'Académie des Inscriptions et Belles-Lettres (CRAI) / MAIBL",
             source_url: 'https://www.persee.fr/doc/crai_0065-0536_1995_num_139_1_15460',
-            pdf_url: '',
             content:
               "Rapport de la mission archéologique franco-allemande (EPHE / RGK Francfort) à Alise-Sainte-Reine (mont Auxois) : relevés des fossés de circonvallation et contrevallation, camps C et A (mont Réa), stimuli, balles de fronde au nom de Labiénus (T.LABI), monnaies gauloises de 52 av. J.-C. et inscription lapidaire IN ALISIIA."
           },
           {
-            hal_id: 'inrap-deberge-gergovie-2019',
             doc_type: 'Rapport de fouilles',
             theme: 'Gergovie & Arvernes',
             title: 'L’oppidum arverne de Gergovie (La Roche-Blanche, Puy-de-Dôme) : bilan des recherches archéologiques sur les fortifications et les ouvrages romains',
@@ -1952,7 +1957,6 @@ export default {
             published_year: '2019',
             journal_or_institution: 'INRAP / Revue archéologique du Centre de la France (RACF) / CNRS',
             source_url: 'https://journals.openedition.org/racf/',
-            pdf_url: '',
             content:
               "Synthèse des fouilles INRAP et CNRS sur le plateau de Gergovie (Merdogne), Corent et Gondole : datation tardo-républicaine des fossés et des deux camps césariens de la Serre d'Orcet et de la Roche-Blanche (traits de catapulte en fer, clous de caligae, monnaies romaines antérieures à 52 av. J.-C.)."
           }
@@ -2056,7 +2060,10 @@ export default {
         new Set([configuredModel, 'gemini-3.5-flash-lite', 'gemini-3.8-flash'])
       );
 
-      const callGeminiStreaming = async (targetModel: string): Promise<{ ok: boolean; status: number; text?: string; error?: string }> => {
+      type WebSourceRef = { title: string; url: string };
+      const callGeminiStreaming = async (
+        targetModel: string
+      ): Promise<{ ok: boolean; status: number; text?: string; webReferences?: WebSourceRef[]; error?: string }> => {
         const isLiteModel = /lite/i.test(targetModel);
         const isGemini3OrNewer = /^gemini-[34]/i.test(targetModel);
         const generationConfig: Record<string, unknown> = {
@@ -2067,8 +2074,20 @@ export default {
           generationConfig.thinkingConfig = { thinkingLevel: 'low' };
         }
 
+        const requestPayload: Record<string, unknown> = {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [
+            ...conversationTurns,
+            { role: 'user', parts: [{ text: userPromptWithSources }] }
+          ],
+          generationConfig
+        };
+        if (useGoogleSearch) {
+          requestPayload.tools = [{ google_search: {} }];
+        }
+
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 25000);
+        const timer = setTimeout(() => controller.abort(), 28000);
         try {
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(targetModel)}:streamGenerateContent?alt=sse`,
@@ -2078,14 +2097,7 @@ export default {
                 'Content-Type': 'application/json',
                 'x-goog-api-key': env.GEMINI_API_KEY!
               },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: [
-                  ...conversationTurns,
-                  { role: 'user', parts: [{ text: userPromptWithSources }] }
-                ],
-                generationConfig
-              }),
+              body: JSON.stringify(requestPayload),
               signal: controller.signal
             }
           );
@@ -2101,6 +2113,7 @@ export default {
 
           const rawSse = await res.text();
           let combined = '';
+          const webRefsMap = new Map<string, WebSourceRef>();
           for (const line of rawSse.split('\n')) {
             const trimmed = line.trim();
             if (!trimmed.startsWith('data:')) continue;
@@ -2108,10 +2121,22 @@ export default {
             if (!jsonStr || jsonStr === '[DONE]') continue;
             try {
               const chunk = JSON.parse(jsonStr);
-              const parts = chunk?.candidates?.[0]?.content?.parts || [];
+              const candidate = chunk?.candidates?.[0];
+              const parts = candidate?.content?.parts || [];
               for (const p of parts) {
                 if (typeof p?.text === 'string' && !p?.thought) {
                   combined += p.text;
+                }
+              }
+              const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
+              for (const gc of groundingChunks) {
+                const uri = gc?.web?.uri;
+                const title = gc?.web?.title;
+                if (typeof uri === 'string' && uri.startsWith('http') && !webRefsMap.has(uri)) {
+                  webRefsMap.set(uri, {
+                    title: typeof title === 'string' && title.trim() ? title.trim() : uri,
+                    url: uri
+                  });
                 }
               }
             } catch {
@@ -2122,7 +2147,8 @@ export default {
           return {
             ok: true,
             status: 200,
-            text: combined.trim()
+            text: combined.trim(),
+            webReferences: Array.from(webRefsMap.values()).slice(0, 8)
           };
         } catch (err: any) {
           const isAbort = err?.name === 'AbortError';
@@ -2130,7 +2156,7 @@ export default {
             ok: false,
             status: isAbort ? 504 : 500,
             error: isAbort
-              ? `Délai dépassé sur ${targetModel} (>25s)`
+              ? `Délai dépassé sur ${targetModel} (>28s)`
               : err?.message || `Erreur réseau sur ${targetModel}`
           };
         } finally {
@@ -2141,12 +2167,14 @@ export default {
       try {
         let answerText = '';
         let usedModel = configuredModel;
+        let webReferences: WebSourceRef[] = [];
         let lastError = 'Impossible de joindre le service Gemini.';
 
         for (const candidate of candidateModels) {
           const result = await callGeminiStreaming(candidate);
           if (result.ok && result.text) {
             answerText = result.text;
+            webReferences = result.webReferences || [];
             usedModel = candidate;
             break;
           }
@@ -2242,21 +2270,99 @@ export default {
           }
         }
 
+        // Log anonymized query & coverage metrics into D1 (Levier 1 RAG: detect knowledge gaps & feedback loop)
+        let queryLogId: number | null = null;
+        if (env.DB) {
+          try {
+            const logRes = await env.DB.prepare(
+              `INSERT INTO ai_query_logs (question, scope, use_google_search, chunks_used, agoravox_used, academic_used, web_sources_used, model)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            )
+              .bind(
+                question.slice(0, 500),
+                sourceScope,
+                useGoogleSearch ? 1 : 0,
+                retrievedChunks.length,
+                retrievedAgoravox.length,
+                retrievedAcademic.length,
+                webReferences.length,
+                model
+              )
+              .run();
+            queryLogId = Number(logRes?.meta?.last_row_id || 0) || null;
+          } catch (logErr) {
+            console.warn('ai_query_logs insert warning:', logErr);
+          }
+        }
+
         return json({
           ok: true,
+          queryLogId,
           answer: answerText,
           references: Array.from(refsMap.values()),
           agoravoxReferences: Array.from(avRefsMap.values()),
           academicReferences: Array.from(acadRefsMap.values()),
+          webReferences,
           indexedChunksUsed: retrievedChunks.length,
           indexedAgoravoxUsed: retrievedAgoravox.length,
           indexedAcademicUsed: retrievedAcademic.length,
+          webSourcesUsed: webReferences.length,
+          googleSearchEnabled: useGoogleSearch,
           mode,
           model
         });
       } catch (err: any) {
         console.error('POST /api/ai/ask error:', err);
         return json({ error: err?.message || "Erreur lors de l'appel à Gemini." }, { status: 500 });
+      }
+    }
+
+    // Authenticated customer: POST /api/ai/feedback -> record 👍/👎 on a query log (Levier 1 RAG)
+    if (pathname === '/api/ai/feedback' && request.method === 'POST') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const session = token ? await verifyCustomerToken(env, token) : null;
+      if (!session?.email) {
+        return json({ error: 'Authentification requise.' }, { status: 401 });
+      }
+      const body = await readJson(request);
+      const queryLogId = Number(body?.queryLogId || 0);
+      const feedback = body?.feedback === 1 ? 1 : body?.feedback === -1 ? -1 : 0;
+      if (!queryLogId || !feedback) {
+        return json({ error: 'Paramètres de feedback invalides.' }, { status: 400 });
+      }
+      if (env.DB) {
+        try {
+          await env.DB.prepare('UPDATE ai_query_logs SET feedback = ? WHERE id = ?')
+            .bind(feedback, queryLogId)
+            .run();
+        } catch (err) {
+          console.warn('POST /api/ai/feedback D1 warning:', err);
+        }
+      }
+      return json({ ok: true, queryLogId, feedback });
+    }
+
+    // Admin: GET /api/admin/ai-logs -> inspect reader prompts, feedback & knowledge gaps
+    if (pathname === '/api/admin/ai-logs' && request.method === 'GET') {
+      const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const verified = token ? await verifyAdminToken(env, token) : null;
+      if (!verified || verified.role !== 'admin') {
+        return json({ error: 'Accès refusé : rôle administrateur requis.' }, { status: 403 });
+      }
+      if (!env.DB) {
+        return json({ ok: true, logs: [] });
+      }
+      try {
+        const rows = await env.DB.prepare(
+          `SELECT id, question, scope, use_google_search, chunks_used, agoravox_used, academic_used, web_sources_used, model, feedback, created_at
+           FROM ai_query_logs
+           ORDER BY id DESC
+           LIMIT 100`
+        ).all();
+        return json({ ok: true, logs: rows.results || [] });
+      } catch (err) {
+        console.error('GET /api/admin/ai-logs error:', err);
+        return json({ error: 'Impossible de charger les journaux IA.' }, { status: 500 });
       }
     }
 
