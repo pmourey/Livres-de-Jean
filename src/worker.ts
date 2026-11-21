@@ -1419,7 +1419,7 @@ export default {
       let sub: { plan: string; status: string; activated_at: string; expires_at?: string | null } | null = null;
       let indexedChunksCount = cachedIndexCounts?.chunks || 8266;
       let indexedAgoravoxCount = cachedIndexCounts?.agoravox || 29370;
-      let indexedAcademicCount = cachedIndexCounts?.academic || 740;
+      let indexedAcademicCount = cachedIndexCounts?.academic || 746;
       let d1QuotaExceeded = false;
 
       if (env.DB) {
@@ -2007,7 +2007,7 @@ export default {
 
       const academicContextBlocks = retrievedAcademic.map(
         (ac, idx) =>
-          `Source Scientifique / Archéologique Officielle ${idx + 1} — [${ac.doc_type}] ${ac.title} | Auteurs : ${ac.authors}${ac.published_year ? ` (${ac.published_year})` : ''}${ac.journal_or_institution ? ` | Publication/Institution : ${ac.journal_or_institution}` : ''} | URL SCIENTIFIQUE : ${ac.source_url}\n${String(ac.content || '').slice(0, 900)}`
+          `Source Scientifique / Archéologique Officielle ${idx + 1} — [${ac.doc_type}] ${ac.title} | Auteurs : ${ac.authors}${ac.published_year ? ` (${ac.published_year})` : ''}${ac.journal_or_institution ? ` | Publication/Institution : ${ac.journal_or_institution}` : ''} | URL SCIENTIFIQUE : ${ac.source_url}\n${String(ac.content || '').slice(0, 1400)}`
       );
 
       const fallbackContextBlocks =
