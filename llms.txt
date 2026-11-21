@@ -11,7 +11,7 @@
 ## Pages principales du site
 - [Catalogue complet des 12 ouvrages](https://pmourey.github.io/Livres-de-Jean/)
 - [Méthode et Controverse — 7 dossiers d'études avec extraits et sources CNRS/Persée](https://pmourey.github.io/Livres-de-Jean/?vue=methode)
-- [Assistant Documentaire IA (RAG sur 6 937 passages PDF + 29 370 extraits AgoraVox + 740 publications CNRS/HAL)](https://pmourey.github.io/Livres-de-Jean/?vue=assistant)
+- [Assistant Documentaire IA (RAG sur 8 266 passages PDF — 100 % du catalogue + 29 370 extraits AgoraVox + 740 publications CNRS/HAL)](https://pmourey.github.io/Livres-de-Jean/?vue=assistant)
 - [Biographie de l'Auteur & Travaux Historiques](https://pmourey.github.io/Livres-de-Jean/?vue=auteur)
 - [Livraison & Paiement](https://pmourey.github.io/Livres-de-Jean/?vue=livraison)
 - [Charte éditoriale & Mentions légales](https://pmourey.github.io/Livres-de-Jean/?vue=charte-legale)
